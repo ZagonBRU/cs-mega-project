@@ -112,7 +112,7 @@ with tab2:
                 contractor = st.selectbox("ทีมผู้รับเหมา:", TEAMS, index=1, key="new_con")
                 budget = st.number_input("งบประมาณที่ตกลงกันไว้ (บาท):", min_value=0, value=200000, key="new_budget")
                 
-                # 🤝 ปรับตามโจทย์: เปิดให้เพิ่มและพิมพ์เองอิสระทั้งสองฝั่ง (Numeric Up-Down)
+                # 📈 สัดส่วนแบ่งกำไรแบบกรอกอิสระทั้งสองฝั่ง (Numeric Up-Down)
                 st.markdown("📈 **สัดส่วนแบ่งกำไร นักลงทุน | ผู้รับเหมา (%)**")
                 col_pct1, col_pct2 = st.columns(2)
                 with col_pct1:
@@ -129,11 +129,22 @@ with tab2:
                 st.markdown(f"📦 **ราคารวมวัสดุสั่งซื้อสุทธิ:** `{mat_cost_calc:,}` บาท")
                 
                 if st.button("📥 ยืนยันการลงทะเบียนโครงการ", use_container_width=True):
+                    # 🔍 [จุดแก้บั๊ก] ตรวจสอบสิทธิ์ผู้รับเหมาว่าติดงานค้างอยู่ในระบบหรือไม่
+                    busy_project = None
+                    busy_idx = -1
+                    for idx, deal in enumerate(GAME_DATA):
+                        if deal["contractor"] == contractor and deal["result"] in ["รอตรวจ", "ไม่ผ่าน"]:
+                            busy_project = f"โพรเจกต์ {deal['project_id']} (ระดับ {deal['difficulty']})"
+                            busy_idx = idx
+                            break
+                    
                     if investor == contractor: 
                         st.error("❌ ห้ามนักลงทุนและผู้รับเหมาเป็นทีมเดียวกันครับ")
-                    # ตรวจสอบเงื่อนไขตอนบันทึก: รวมกันต้องได้ 100% เสมอ
                     elif inv_pct + con_pct != 100:
-                        st.error(f"❌ สัดส่วนแบ่งกำไรรวมกันต้องได้ 100% พอดี (ปัจจุบัน นักลงทุน {inv_pct}% + ผู้รับเหมา {con_pct}% = {inv_pct + con_pct}%)")
+                        st.error(f"❌ สัดส่วนแบ่งกำไรรวมกันต้องได้ 100% พอดี (ปัจจุบันได้ {inv_pct + con_pct}%)")
+                    # 🚨 ดักเงื่อนไข: หากทีมผู้รับเหมามีสถานะทำงานค้างอยู่ จะสั่งระงับทันที
+                    elif busy_project is not None:
+                        st.error(f"❌ ทีม **[{contractor}]** กำลังมีงานค้างดำเนินการอยู่ ({busy_project} ในคิวที่ {busy_idx}) ต้องส่งตรวจให้ผ่านหรือขอยกเลิกก่อน จึงจะรับงานใหม่ได้!")
                     else:
                         GAME_DATA.append({
                             "project_id": p_id, "project_name": PROJECT_MASTER[p_id]["name"],
