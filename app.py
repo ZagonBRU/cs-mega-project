@@ -265,15 +265,36 @@ if check_staff_authentication(tab2, "auth_tab2"):
                                 if st.button("❌ ยกเลิก", key=f"btn_no_{selected_row_idx}", use_container_width=True):
                                     st.session_state[confirm_key] = False
                                     st.rerun()
-                            
+
                 with col_btn2:
                     if target_edit["result"] not in ["ผ่าน", "ยกเลิก"]:
-                        if st.button("🚨 ขอยกเลิกโปรเจ็คนี้ (โดยความต้องการของทีม)", type="primary", key=f"btn_cancel_{selected_row_idx}", use_container_width=True):
-                            GAME_DATA[selected_row_idx]["result"] = "ยกเลิก"
-                            GAME_DATA[selected_row_idx]["net_profit"] = -int(target_edit["budget"])
-                            save_json(DATA_FILE, GAME_DATA)
-                            st.warning("⚠️ เปลี่ยนสถานะเป็นยกเลิกแล้ว (ทีมนายทุนสูญเสียเงินลงทุนก้อนแรกเรียบร้อย ประวัติการจองยังคงอยู่ในตาราง)")
-                            st.rerun()
+                        # สร้างตัวแปรกลางดักจับสถานะการกดยกเลิกรายคิวงาน
+                        cancel_confirm_key = f"cancel_confirm_{selected_row_idx}"
+                        if cancel_confirm_key not in st.session_state:
+                            st.session_state[cancel_confirm_key] = False
+                            
+                        if not st.session_state[cancel_confirm_key]:
+                            # ขั้นที่ 1: แสดงปุ่มกดเริ่มต้นขอยกเลิก
+                            if st.button("🚨 ขอยกเลิกโปรเจ็คนี้ (โดยความต้องการของทีม)", type="primary", key=f"btn_cancel_click_{selected_row_idx}", use_container_width=True):
+                                st.session_state[cancel_confirm_key] = True
+                                st.rerun()
+                        else:
+                            # ขั้นที่ 2: เด้งป๊อปอัปจำลองเตือนความมั่นใจและคิดเงินติดลบฝั่งนายทุน
+                            st.error(f"⚠️ **ยืนยันการหักยอดบัญชีนายทุน?** หากยกเลิกคิวที่ {selected_row_idx + 1} ทีมนายทุนจะถูกปรับติดลบก้อนเงินลงทุนทันที **-{int(target_edit['budget'])}** บาท!")
+                            col_cc1, col_conf2 = st.columns(2)
+                            with col_cc1:
+                                if st.button("🚨 ใช่, ยืนยันการยกเลิก", key=f"btn_yes_cancel_{selected_row_idx}", use_container_width=True, type="primary"):
+                                    GAME_DATA[selected_row_idx]["result"] = "ยกเลิก"
+                                    GAME_DATA[selected_row_idx]["net_profit"] = -int(target_edit["budget"])
+                                    save_json(DATA_FILE, GAME_DATA)
+                                    st.session_state[cancel_confirm_key] = False
+                                    st.warning("⚠️ เปลี่ยนสถานะเป็นยกเลิกและตัดยอดเงินทุนเรียบร้อย!")
+                                    st.rerun()
+                            with col_conf2:
+                                if st.button("❌ กลับไปหน้าเดิม", key=f"btn_no_cancel_{selected_row_idx}", use_container_width=True):
+                                    st.session_state[cancel_confirm_key] = False
+                                    st.rerun()
+
                 
                 df_display.index = range(1, len(df_display) + 1)
                 st.dataframe(df_display, use_container_width=True)
