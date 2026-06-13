@@ -28,7 +28,25 @@ MATERIAL_PRICES = load_json(ITEM_FILE, {"ไม้เสียบลูกชิ
 PROJECT_MASTER = load_json(PROJECT_FILE, {})
 GAME_DATA = load_json(DATA_FILE, [])
 
-# ประมวลผลหา "สถานะปัจจุบัน" ของโปรเจ็คแต่ละระดับความยากแบบ Dynamic
+# 🛠️ ฟังก์ชันตรรกะสากลสำหรับเจนเนอเรตคำห้อยท้ายสถานะโปรเจ็คใน Dropdown ทุกจุดอัตโนมัติ
+def get_deal_status_label(deal):
+    res = deal.get("result", "รอตรวจ")
+    times = deal.get("times", 0)
+    shop_received = deal.get("shop_received", False)
+    
+    if res == "ผ่าน":
+        return " (สำเร็จ)"
+    elif res == "ยกเลิก":
+        return " (ยกเลิก)"
+    elif res == "ไม่ผ่าน":
+        return f" (กำลังดำเนินการ: ตรวจแล้ว #{times})"
+    else: # กรณีสถานะ "รอตรวจ" (ดีลงานที่เพิ่งคีย์สัญญากดลงทะเบียนเข้ามาใหม่)
+        if not shop_received:
+            return " (กำลังดำเนินการ: รอรับของ)"
+        else:
+            return " (กำลังดำเนินการ: รับของแล้ว)"
+
+# ประมวลผลหา "สถานะปัจจุบัน" ของโปรเจ็คแต่ละระดับความยากแบบ Dynamic (สำหรับการคุมกติกาหลังบ้าน)
 STATUS_MAP = {}
 for deal in GAME_DATA:
     key = f"{deal['project_id']}-{deal['difficulty']}"
@@ -41,7 +59,7 @@ for deal in GAME_DATA:
     elif deal["result"] == "ยกเลิก" and STATUS_MAP.get(key) not in ["กำลังดำเนินการ", "เสร็จสิ้น"]:
         STATUS_MAP[key] = "ว่าง"
 
-# 🧭 เมนูแท็บการจัดหน้าสตรีมลิต (จัดลำดับตรรกะใหม่)
+# 🧭 เมนูแท็บการจัดหน้าสตรีมลิต
 tab1, tab2, tab4, tab3 = st.tabs([
     "🌐 คู่มือและบอร์ดสถานะโปรเจ็ค (สำหรับนักศึกษา)", 
     "🔐 ระบบควบคุมเกม (Staff Only)", 
@@ -114,9 +132,10 @@ with tab1:
 # ==========================================
 if check_staff_authentication(tab2, "auth_tab2"):
     with tab2:
+        # 📊 แบ่ง Layout อัตราส่วนหน้าจอเป็น [ 1 ส่วน | 2 ส่วน ] เพื่อเพิ่มพื้นที่ให้ตารางข้อมูลภาพรวม
         col_f, col_edit = st.columns([1, 2])
         
-        # 📥 ฝั่งซ้าย: ลงทะเบียนโปรเจ็ค + สั่งซื้อวัสดุ
+        # 📥 ฝั่งซ้าย (กว้าง 1 ส่วน): ลงทะเบียนโปรเจ็ค + สั่งซื้อวัสดุ
         with col_f:
             st.subheader("📝 1. ส่วนลงทะเบียนโปรเจ็ค")
             st.markdown("##### 📥 ฟอร์มลงทะเบียนและสั่งของใหม่")
@@ -139,6 +158,7 @@ if check_staff_authentication(tab2, "auth_tab2"):
                 contractor = st.selectbox("ทีมผู้รับเหมา:", TEAMS, index=1, key="new_con")
                 budget = st.number_input("งบประมาณที่ตกลงกันไว้ (บาท):", min_value=0, value=200000, key="new_budget")
                 
+                # 📈 สัดส่วนแบ่งกำไรแบบกรอกอิสระทั้งสองฝั่ง (Numeric Up-Down)
                 st.markdown("📈 **สัดส่วนแบ่งกำไร นักลงทุน | ผู้รับเหมา (%)**")
                 col_pct1, col_pct2 = st.columns(2)
                 with col_pct1:
@@ -146,6 +166,7 @@ if check_staff_authentication(tab2, "auth_tab2"):
                 with col_pct2:
                     con_pct = st.number_input("ผู้รับเหมา", min_value=0, max_value=100, value=60, step=1, key="new_con_pct")
                 
+                # ตารางเปิดบิลคำนวณราคาวัสดุ
                 mat_cost_calc = 0
                 mat_order_details = {}
                 if "reset_trigger" not in st.session_state:
@@ -194,7 +215,7 @@ if check_staff_authentication(tab2, "auth_tab2"):
             else:
                 st.info("โปรเจ็คทุกระดับถูกจับจองหรือทำเสร็จสิ้นหมดแล้ว!")
 
-        # 📊 ฝั่งขวา: แสดงตารางภาพรวมขนาดใหญ่ พร้อมระบบแก้ไข/ลบ/ขอยกเลิก
+        # 📊 ฝั่งขวา (กว้าง 2 ส่วน): แสดงตารางภาพรวมขนาดใหญ่ พร้อมระบบแก้ไข/ลบ/ขอยกเลิก
         with col_edit:
             st.subheader("📊 ตารางภาพรวมข้อมูลโปรเจ็ค")
             st.markdown("##### 🔍 ค้นหา แก้ไข หรือลบข้อมูลดีลงานที่คีย์ผิด")
@@ -204,8 +225,12 @@ if check_staff_authentication(tab2, "auth_tab2"):
                 df_display = df_overview[display_cols].copy()
                 df_display.columns = ["รหัส", "ระดับ", "นักลงทุน", "กำไรนายทุน %", "ผู้รับเหมา", "กำไรผู้รับเหมา %", "ค่าวัสดุ", "งบลงทุน", "สถานะผล"]
                 
-                selected_row_idx = st.selectbox("🎯 คลิกเลือกแถวคิวงานที่ต้องการ แก้ไข/ลบถาวร/ขอยกเลิก:", 
-                    range(len(GAME_DATA)), format_func=lambda x: f"คิวที่ {x + 1} | โปรเจ็ค {GAME_DATA[x]['project_id']} (ระดับ {GAME_DATA[x]['difficulty']}) -> ทีม {GAME_DATA[x]['contractor']}" + (" (ยกเลิก)" if GAME_DATA[x]['result'] == "ยกเลิก" else ""))
+                # 🛠️ [จุดแก้ไข] ดึงระบบ State Machine ฝังคำห้อยท้ายสถานะใน Dropdown ค้นหาและแก้ไขคิวงาน
+                selected_row_idx = st.selectbox(
+                    "🎯 คลิกเลือกแถวคิวงานที่ต้องการ แก้ไข/ลบถาวร/ขอยกเลิก:", 
+                    range(len(GAME_DATA)), 
+                    format_func=lambda x: f"คิวที่ {x + 1} | โปรเจ็ค {GAME_DATA[x]['project_id']} (ระดับ {GAME_DATA[x]['difficulty']}) -> ทีม {GAME_DATA[x]['contractor']}" + get_deal_status_label(GAME_DATA[x])
+                )
                 
                 target_edit = GAME_DATA[selected_row_idx]
                 
@@ -265,21 +290,18 @@ if check_staff_authentication(tab2, "auth_tab2"):
                                 if st.button("❌ ยกเลิก", key=f"btn_no_{selected_row_idx}", use_container_width=True):
                                     st.session_state[confirm_key] = False
                                     st.rerun()
-
+                            
                 with col_btn2:
                     if target_edit["result"] not in ["ผ่าน", "ยกเลิก"]:
-                        # สร้างตัวแปรกลางดักจับสถานะการกดยกเลิกรายคิวงาน
                         cancel_confirm_key = f"cancel_confirm_{selected_row_idx}"
                         if cancel_confirm_key not in st.session_state:
                             st.session_state[cancel_confirm_key] = False
                             
                         if not st.session_state[cancel_confirm_key]:
-                            # ขั้นที่ 1: แสดงปุ่มกดเริ่มต้นขอยกเลิก
                             if st.button("🚨 ขอยกเลิกโปรเจ็คนี้ (โดยความต้องการของทีม)", type="primary", key=f"btn_cancel_click_{selected_row_idx}", use_container_width=True):
                                 st.session_state[cancel_confirm_key] = True
                                 st.rerun()
                         else:
-                            # ขั้นที่ 2: เด้งป๊อปอัปจำลองเตือนความมั่นใจและคิดเงินติดลบฝั่งนายทุน
                             st.error(f"⚠️ **ยืนยันการหักยอดบัญชีนายทุน?** หากยกเลิกคิวที่ {selected_row_idx + 1} ทีมนายทุนจะถูกปรับติดลบก้อนเงินลงทุนทันที **-{int(target_edit['budget'])}** บาท!")
                             col_cc1, col_conf2 = st.columns(2)
                             with col_cc1:
@@ -294,14 +316,13 @@ if check_staff_authentication(tab2, "auth_tab2"):
                                 if st.button("❌ กลับไปหน้าเดิม", key=f"btn_no_cancel_{selected_row_idx}", use_container_width=True):
                                     st.session_state[cancel_confirm_key] = False
                                     st.rerun()
-
                 
                 df_display.index = range(1, len(df_display) + 1)
                 st.dataframe(df_display, use_container_width=True)
             else:
                 st.info("ยังไม่มีข้อมูลลงทะเบียนในระบบ")
 
-        # ส่วนบันทึกผลการตรวจงาน
+        # ⏱️ ส่วนบันทึกผลการตรวจงาน (ส่วนที่ 2 ด้านล่างของแท็บ 2)
         st.markdown("---")
         st.subheader("⏱️ 2. ส่วนบันทึกผลการตรวจ")
         
@@ -313,8 +334,12 @@ if check_staff_authentication(tab2, "auth_tab2"):
             st.markdown("*ตารางสรุปข้อมูลรายการโปรเจ็คทำกำลังดำเนินการทั้งหมด สามารถกดเลือกคลิก Row ด้านล่างเพื่อทำการบันทึกตรวจงาน:*")
             st.dataframe(df_pending, use_container_width=True, hide_index=True)
             
-            audit_idx = st.selectbox("🔍 คลิกเลือกแถวข้อมูลโปรเจ็คเพื่อทำการบันทึกผลการตรวจงาน:", pending_indices,
-                                     format_func=lambda x: f"คิวที่ {x + 1} | โปรเจ็ค {GAME_DATA[x]['project_id']} (ระดับ {GAME_DATA[x]['difficulty']}) -> ผู้รับเหมา: {GAME_DATA[x]['contractor']}" + (" (ยกเลิก)" if GAME_DATA[x]['result'] == "ยกเลิก" else ""))
+            # 🛠️ [จุดแก้ไข] ดึงระบบ State Machine ฝังคำห้อยท้ายสถานะใน Dropdown บันทึกผลตรวจงาน
+            audit_idx = st.selectbox(
+                "🔍 คลิกเลือกแถวข้อมูลโปรเจ็คเพื่อทำการบันทึกผลการตรวจงาน:", 
+                pending_indices,
+                format_func=lambda x: f"คิวที่ {x + 1} | โปรเจ็ค {GAME_DATA[x]['project_id']} (ระดับ {GAME_DATA[x]['difficulty']}) -> ผู้รับเหมา: {GAME_DATA[x]['contractor']}" + get_deal_status_label(GAME_DATA[x])
+            )
             
             target_audit = GAME_DATA[audit_idx]
             
@@ -379,10 +404,12 @@ if check_staff_authentication(tab4, "auth_tab4"):
         
         if uncompleted_shop_deals:
             st.subheader("🛒 1. คิวงานเบิกพัสดุอุปกรณ์ที่รอจัดส่ง")
+            
+            # 🛠️ [จุดแก้ไข] ดึงระบบ State Machine ฝังคำห้อยท้ายสถานะใน Dropdown หน้าร้านค้าเบิกจ่ายของ
             shop_select_idx = st.selectbox(
                 "🎯 เลือกคิวงานเพื่อดูรายการวัสดุที่ต้องจัดให้เด็ก:",
                 uncompleted_shop_deals,
-                format_func=lambda x: f"คิวที่ {x + 1} | ทีมผู้รับเหมา: {GAME_DATA[x]['contractor']} -> จองโปรเจ็ค {GAME_DATA[x]['project_id']} (ระดับ {GAME_DATA[x]['difficulty']})" + (" (ยกเลิก)" if GAME_DATA[x]['result'] == "ยกเลิก" else "")
+                format_func=lambda x: f"คิวที่ {x + 1} | ทีมผู้รับเหมา: {GAME_DATA[x]['contractor']} -> จองโปรเจ็ค {GAME_DATA[x]['project_id']} (ระดับ {GAME_DATA[x]['difficulty']})" + get_deal_status_label(GAME_DATA[x])
             )
             
             target_shop_deal = GAME_DATA[shop_select_idx]
@@ -437,7 +464,6 @@ if check_staff_authentication(tab3, "auth_tab3"):
         st.header("🏆 อันดับคะแนนลีดเดอร์บอร์ดและแดชบอร์ดสถิติหน้างาน")
         st.caption("ข้อมูลวิเคราะห์ดุลบัญชีและประสิทธิภาพการลงทุนของแต่ละทีมสี")
         
-        # 📊 ประมวลผลคำนวณคะแนนและสถิติสะสมแยกละเอียด
         scores = {t: {"กำไรบทบาทนายทุน": 0, "กำไรบทบาทผู้รับเหมา": 0, "กำไรสุทธิรวม": 0, "ต้นทุนวัสดุสะสม": 0} for t in TEAMS}
         
         for d in GAME_DATA:
@@ -445,7 +471,7 @@ if check_staff_authentication(tab3, "auth_tab3"):
                 if d["result"] == "ผ่าน":
                     scores[d["investor"]]["กำไรบทบาทนายทุน"] += d["net_profit"] * (d["investor_pct"]/100)
                     scores[d["contractor"]]["กำไรบทบาทผู้รับเหมา"] += d["net_profit"] * (d["contractor_pct"]/100)
-                    scores[d["investor"]]["ต้นทุนวัสดุสะสม"] += d["material_cost"] # นายทุนออกค่าของ
+                    scores[d["investor"]]["ต้นทุนวัสดุสะสม"] += d["material_cost"]
                 elif d["result"] == "ยกเลิก":
                     scores[d["investor"]]["กำไรบทบาทนายทุน"] += d["net_profit"]
                     
@@ -455,11 +481,9 @@ if check_staff_authentication(tab3, "auth_tab3"):
         if len(GAME_DATA) > 0:
             df_sc = pd.DataFrame.from_dict(scores, orient='index').sort_values(by="กำไรสุทธิรวม", ascending=False)
             
-            # 🥇 แสดงการ์ดผู้ชนะตัวใหญ่ด้านบน
             if df_sc.iloc[0]["กำไรสุทธิรวม"] != 0:
                 st.metric(label=f"👑 สีที่เป็นผู้นำตลาดในขณะนี้คิอ:", value=f"ทีม {df_sc.index[0]} ({df_sc.iloc[0]['กำไรสุทธิรวม']:,.0f} บาท)")
             
-            # แบ่งส่วนแสดงผล ตารางคะแนนหลัก กับ แดชบอร์ดสรุปสถิติเชิงลึก
             col_table, col_chart = st.columns([1, 1.2])
             
             with col_table:
@@ -476,18 +500,15 @@ if check_staff_authentication(tab3, "auth_tab3"):
             col_analysis1, col_analysis2 = st.columns(2)
             
             with col_analysis1:
-                # 📈 สถิติที่ 1: กราฟแท่งแยกสัดส่วนบทบาท (นายทุน vs ผู้รับเหมา)
                 st.markdown("##### 🤝 ประสิทธิภาพจำแนกตามบทบาท (นายทุน vs ผู้รับเหมา)")
                 df_role = df_sc[["กำไรบทบาทนายทุน", "กำไรบทบาทผู้รับเหมา"]]
                 st.bar_chart(df_role)
                 st.caption("💡 แผนภูมินี้ช่วยวิเคราะห์ว่าทีมสีใดมีทักษะโดดเด่นด้าน 'การเจรจาลงทุน (นายทุน)' หรือด้าน 'การควบคุมการผลิต (ผู้รับเหมา)'")
                 
             with col_analysis2:
-                # 📉 สถิติที่ 2: ส่วนแบ่งมูลค่าการซื้อของในตลาดกลาง (Market Share Cost Pie)
                 st.markdown("##### 🛒 สัดส่วนมูลค่าการลงทุนซื้อพัสดุในตลาดกลาง")
                 df_mat_share = df_sc[df_sc["ต้นทุนวัสดุสะสม"] > 0]["ต้นทุนวัสดุสะสม"]
                 if not df_mat_share.empty:
-                    # ใช้ st.bar_chart จำลองสัดส่วนต้นทุนสะสมของตลาดพัสดุกลาง
                     st.bar_chart(df_mat_share)
                     st.caption("💡 แสดงปริมาณเงินสะสมที่แต่ละทีมใช้ในการหมุนเวียนซื้อวัสดุอุปกรณ์จากร้านค้ากลาง")
                 else:
