@@ -28,7 +28,7 @@ MATERIAL_PRICES = load_json(ITEM_FILE, {"ไม้เสียบลูกชิ
 PROJECT_MASTER = load_json(PROJECT_FILE, {})
 GAME_DATA = load_json(DATA_FILE, [])
 
-# ประมวลผลหา "สถานะปัจจุบัน" ของโปรเจกต์แต่ละระดับความยากแบบ Dynamic
+# ประมวลผลหา "สถานะปัจจุบัน" ของโปรเจ็คแต่ละระดับความยากแบบ Dynamic
 STATUS_MAP = {}
 for deal in GAME_DATA:
     key = f"{deal['project_id']}-{deal['difficulty']}"
@@ -42,31 +42,30 @@ for deal in GAME_DATA:
         STATUS_MAP[key] = "ว่าง"
 
 # 🧭 เมนูแท็บการจัดหน้าสตรีมลิต
-tab1, tab2, tab3 = st.tabs(["🌐 คู่มือและบอร์ดสถานะโครงการ (สำหรับนักศึกษา)", "🔐 ระบบควบคุมเกม (Staff Only)", "🏆 สรุปคะแนนลีดเดอร์บอร์ด"])
+tab1, tab2, tab3 = st.tabs(["🌐 คู่มือและบอร์ดสถานะโปรเจ็ค (สำหรับนักศึกษา)", "🔐 ระบบควบคุมเกม (Staff Only)", "🏆 สรุปคะแนนลีดเดอร์บอร์ด"])
 
 # ==========================================
 # 🌐 TAB 1: บอร์ดคู่มือภารกิจสาธารณะสำหรับนักศึกษา
 # ==========================================
 with tab1:
-    st.header("📋 คู่มือภารกิจเมกะโปรเจกต์ & เช็กสถานะงานดิจิทัล")
+    st.header("📋 คู่มือภารกิจเมกะโปรเจ็ค & เช็กสถานะงานดิจิทัล")
     st.caption("นักศึกษาสามารถสแกนเข้ามาอ่านรายละเอียดเงื่อนไขและจองงานได้จากหน้านี้โดยไม่ต้องใช้กระดาษ")
     
-    # 💡 [จุดเพิ่มที่ 1] เพิ่มการแสดงรายการวัสดุและราคากลางฝั่งนักศึกษา เพื่อให้ทุกทีมใช้วางแผนต้นทุนก่อนเดินมาหาตาฟ
     if MATERIAL_PRICES:
         with st.expander("📦 รายการวัสดุอุปกรณ์และราคากลาง (สำหรับวางแผนคำนวณต้นทุน)", expanded=True):
             mat_records = [{"รายการวัสดุ/อุปกรณ์": mat, "ราคากลาง (บาท)": f"{price:,}"} for mat, price in MATERIAL_PRICES.items()]
             df_mat = pd.DataFrame(mat_records)
             st.table(df_mat)
-            st.caption("⚠️ หมายเหตุ: รายการที่มีเครื่องหมาย * เป็นวัสดุควบคุมตามข้อกำหนดเฉพาะของบางโครงการ โปรดตรวจสอบเงื่อนไขก่อนสั่งซื้อ")
+            st.caption("⚠️ หมายเหตุ: รายการที่มีเครื่องหมาย * เป็นวัสดุควบคุมตามข้อกำหนดเฉพาะของบางโปรเจ็ค โปรดตรวจสอบเงื่อนไขก่อนสั่งซื้อ")
 
     st.markdown("---")
 
     if PROJECT_MASTER:
         p_options = sorted(list(PROJECT_MASTER.keys()), key=int)
-        selected_p = st.selectbox("🔍 เลือกดูรายละเอียดโครงการที่ต้องการศึกษา:", p_options, 
-                                   format_func=lambda x: f"โพรเจกต์รหัส {x} : {PROJECT_MASTER[x]['name']}")
+        selected_p = st.selectbox("🔍 เลือกดูรายละเอียดโปรเจ็คที่ต้องการศึกษา:", p_options, 
+                                   format_func=lambda x: f"โปรเจ็ครหัส {x} : {PROJECT_MASTER[x]['name']}")
         
-        st.info(f"**📜 รายละเอียดข้อกำหนดโครงการ:** {PROJECT_MASTER[selected_p]['description']}")
+        st.info(f"**📜 รายละเอียดข้อกำหนดโปรเจ็ค:** {PROJECT_MASTER[selected_p]['description']}")
         
         st.markdown("**📊 Status สถานะการจองในแต่ละระดับความยาก:**")
         lvl_records = []
@@ -102,9 +101,9 @@ with tab2:
         # 📊 Layout [ 1 ส่วน | 2 ส่วน ]
         col_f, col_edit = st.columns([1, 2])
         
-        # 📥 ฝั่งซ้าย (กว้าง 1 ส่วน): ลงทะเบียนโครงการ + สั่งซื้อวัสดุ
+        # 📥 ฝั่งซ้าย (กว้าง 1 ส่วน): ลงทะเบียนโปรเจ็ค + สั่งซื้อวัสดุ
         with col_f:
-            st.subheader("📝 1. ส่วนลงทะเบียนโครงการ")
+            st.subheader("📝 1. ส่วนลงทะเบียนโปรเจ็ค")
             st.markdown("##### 📥 ฟอร์มลงทะเบียนและสั่งของใหม่")
             
             deal_choices = []
@@ -115,12 +114,12 @@ with tab2:
                         deal_choices.append(key)
             
             if deal_choices:
-                chosen_key = st.selectbox("เลือกโครงการ (รหัสโครงการ-ระดับ):", sorted(deal_choices, key=lambda x: (int(x.split('-')[0]), int(x.split('-')[1]))), 
+                chosen_key = st.selectbox("เลือกโปรเจ็ค (รหัสโปรเจ็ค-ระดับ):", sorted(deal_choices, key=lambda x: (int(x.split('-')[0]), int(x.split('-')[1]))), 
                                           format_func=lambda x: f"งาน {x.split('-')[0]} {PROJECT_MASTER[x.split('-')[0]]['name']} (ระดับ {x.split('-')[1]})", key="new_deal_box")
                 p_id, d_lvl = chosen_key.split("-")
                 reward_amt = PROJECT_MASTER[p_id]["levels"][d_lvl]["reward"]
                 
-                st.markdown(f"💰 **มูลค่าสัญญาโครงการ:** `{reward_amt:,}` บาท")
+                st.markdown(f"💰 **มูลค่าสัญญาโปรเจ็ค:** `{reward_amt:,}` บาท")
                 investor = st.selectbox("ทีมนักลงทุน:", TEAMS, index=0, key="new_inv")
                 contractor = st.selectbox("ทีมผู้รับเหมา:", TEAMS, index=1, key="new_con")
                 budget = st.number_input("งบประมาณที่ตกลงกันไว้ (บาท):", min_value=0, value=200000, key="new_budget")
@@ -149,13 +148,14 @@ with tab2:
                         
                 st.markdown(f"📦 **ราคารวมวัสดุสั่งซื้อสุทธิ:** `{mat_cost_calc:,}` บาท")
                 
-                if st.button("📥 ยืนยันการลงทะเบียนโครงการ", use_container_width=True):
+                if st.button("📥 ยืนยันการลงทะเบียนโปรเจ็ค", use_container_width=True):
+                    # ตรวจสอบสิทธิ์ผู้รับเหมาว่าติดงานค้างอยู่หรือไม่
                     busy_project = None
                     busy_idx = -1
                     for idx, deal in enumerate(GAME_DATA):
                         if deal["contractor"] == contractor and deal["result"] in ["รอตรวจ", "ไม่ผ่าน"]:
-                            busy_project = f"โพรเจกต์ {deal['project_id']} (ระดับ {deal['difficulty']})"
-                            busy_idx = idx
+                            busy_project = f"โปรเจ็ค {deal['project_id']} (ระดับ {deal['difficulty']})"
+                            busy_idx = idx + 1  # ปรับให้แสดงผลเป็นคิวเริ่มต้นจาก 1
                             break
                     
                     if investor == contractor: 
@@ -165,7 +165,7 @@ with tab2:
                     elif busy_project is not None:
                         st.error(f"❌ ทีม **[{contractor}]** กำลังมีงานค้างดำเนินการอยู่ ({busy_project} ในคิวที่ {busy_idx}) ต้องส่งตรวจให้ผ่านหรือให้สตาฟลบแถวข้อมูลออกก่อนจึงจะจองงานใหม่ได้")
                     elif budget < mat_cost_calc:
-                        st.error(f"❌ งบประมาณไม่เพียงพอ! งบประมาณตั้งต้นของโครงการ ({budget:,} บาท) จะต้องสูงกว่าหรือเท่ากับราคารวมวัสดุสั่งซื้อ ({mat_cost_calc:,} บาท) เสมอครับ")
+                        st.error(f"❌ งบประมาณไม่เพียงพอ! งบประมาณตั้งต้นของโปรเจ็ค ({budget:,} บาท) จะต้องสูงกว่าหรือเท่ากับราคารวมวัสดุสั่งซื้อ ({mat_cost_calc:,} บาท) เสมอครับ")
                     else:
                         GAME_DATA.append({
                             "project_id": p_id, "project_name": PROJECT_MASTER[p_id]["name"],
@@ -177,11 +177,11 @@ with tab2:
                         st.success("✅ บันทึกข้อมูลลงทะเบียนสำเร็จ!")
                         st.rerun()
             else:
-                st.info("โครงการทุกระดับถูกจับจองหรือทำเสร็จสิ้นหมดแล้ว!")
+                st.info("โปรเจ็คทุกระดับถูกจับจองหรือทำเสร็จสิ้นหมดแล้ว!")
 
         # 📊 ฝั่งขวา (กว้าง 2 ส่วน): แสดงตารางภาพรวมขนาดใหญ่ พร้อมระบบแก้ไข/ลบ/ขอยกเลิก
         with col_edit:
-            st.subheader("📊 ตารางภาพรวมข้อมูลโครงการ")
+            st.subheader("📊 ตารางภาพรวมข้อมูลโปรเจ็ค")
             st.markdown("##### 🔍 ค้นหา แก้ไข หรือลบข้อมูลดีลงานที่คีย์ผิด")
             if GAME_DATA:
                 df_overview = pd.DataFrame(GAME_DATA)
@@ -189,14 +189,18 @@ with tab2:
                 df_display = df_overview[display_cols].copy()
                 df_display.columns = ["รหัส", "ระดับ", "นักลงทุน", "กำไรนายทุน %", "ผู้รับเหมา", "กำไรผู้รับเหมา %", "ค่าวัสดุ", "งบลงทุน", "สถานะผล"]
                 
+                # ปรับ Dropdown การเลือกคิวงานให้เริ่มต้นนับคิวจาก 1
                 selected_row_idx = st.selectbox("🎯 คลิกเลือกแถวคิวงานที่ต้องการ แก้ไข/ลบถาวร/ขอยกเลิก:", range(len(GAME_DATA)), 
-                                                 format_func=lambda x: f"คิวที่ {x} | โพรเจกต์ {GAME_DATA[x]['project_id']} (ระดับ {GAME_DATA[x]['difficulty']}) -> ทีม {GAME_DATA[x]['contractor']}")
+                                                 format_func=lambda x: f"คิวที่ {x + 1} | โปรเจ็ค {GAME_DATA[x]['project_id']} (ระดับ {GAME_DATA[x]['difficulty']}) -> ทีม {GAME_DATA[x]['contractor']}")
                 
                 target_edit = GAME_DATA[selected_row_idx]
                 
                 col_btn1, col_btn2 = st.columns(2)
                 with col_btn1:
                     with st.expander("✏️ ฟอร์มแก้ไขข้อมูล / 🗑️ ลบ Record คีย์ผิดพลาด"):
+                        # 🛠️ [จุดแก้ไขหลัก] แสดงคิวงานปัจจุบันแบบเริ่มจาก 1 และเซ็ตเป็น Read-only (disabled=True)
+                        st.text_input("🎯 คิวที่ทำงานปัจจุบัน (Read-Only):", value=str(selected_row_idx + 1), disabled=True)
+                        
                         edit_inv = st.selectbox("แก้ไขนักลงทุน:", TEAMS, index=TEAMS.index(target_edit["investor"]), key=f"ed_inv_{selected_row_idx}")
                         
                         st.markdown("⚡ *แก้ไขสัดส่วนแบ่งกำไร (%)*")
@@ -235,7 +239,7 @@ with tab2:
                                 st.session_state[confirm_key] = True
                                 st.rerun()
                         else:
-                            st.warning(f"⚠️ **คุณแน่ใจใช่ไหม?** ระบบจะทำการลบข้อมูลคิวที่ {selected_row_idx} ออกจากฐานข้อมูลทันทีแบบกู้คืนไม่ได้!")
+                            st.warning(f"⚠️ **คุณแน่ใจใช่ไหม?** ระบบจะทำการลบข้อมูลคิวที่ {selected_row_idx + 1} ออกจากฐานข้อมูลทันทีแบบกู้คืนไม่ได้!")
                             col_conf1, col_conf2 = st.columns(2)
                             with col_conf1:
                                 if st.button("✅ ใช่, ยืนยันการลบถาวร", key=f"btn_yes_{selected_row_idx}", use_container_width=True, type="primary"):
@@ -251,13 +255,15 @@ with tab2:
                             
                 with col_btn2:
                     if target_edit["result"] not in ["ผ่าน", "ยกเลิก"]:
-                        if st.button("🚨 ขอยกเลิกโครงการนี้ (โดยความต้องการของทีม)", type="primary", key=f"btn_cancel_{selected_row_idx}", use_container_width=True):
+                        if st.button("🚨 ขอยกเลิกโปรเจ็คนี้ (โดยความต้องการของทีม)", type="primary", key=f"btn_cancel_{selected_row_idx}", use_container_width=True):
                             GAME_DATA[selected_row_idx]["result"] = "ยกเลิก"
                             GAME_DATA[selected_row_idx]["net_profit"] = -int(target_edit["budget"])
                             save_json(DATA_FILE, GAME_DATA)
                             st.warning("⚠️ เปลี่ยนสถานะเป็นยกเลิกแล้ว (ทีมนายทุนสูญเสียเงินลงทุนก้อนแรกเรียบร้อย ประวัติการจองยังคงอยู่ในตาราง)")
                             st.rerun()
                 
+                # แสดงเลขลำดับตารางให้เริ่มนับจาก 1 สอดคล้องกับคิวหน้างาน
+                df_display.index = range(1, len(df_display) + 1)
                 st.dataframe(df_display, use_container_width=True)
             else:
                 st.info("ยังไม่มีข้อมูลลงทะเบียนในระบบ")
@@ -272,22 +278,22 @@ with tab2:
         
         if pending_indices:
             df_pending = pd.DataFrame([GAME_DATA[i] for i in pending_indices])[["project_id", "difficulty", "investor", "contractor", "material_cost", "budget", "result"]]
-            df_pending.columns = ["รหัสโครงการ", "ระดับความยาก", "ทีมนักลงทุน", "ทีมผู้รับเหมา", "ราคารวมวัสดุเดิม", "งบประมาณโครงการ", "ผลตรวจรอบล่าสุด"]
-            st.markdown("*ตารางสรุปข้อมูลรายการโครงการทำกำลังดำเนินการทั้งหมด สามารถกดเลือกคลิก Row ด้านล่างเพื่อทำการบันทึกตรวจงาน:*")
+            df_pending.columns = ["รหัสโปรเจ็ค", "ระดับความยาก", "ทีมนักลงทุน", "ทีมผู้รับเหมา", "ราคารวมวัสดุเดิม", "งบประมาณโปรเจ็ค", "ผลตรวจรอบล่าสุด"]
+            st.markdown("*ตารางสรุปข้อมูลรายการโปรเจ็คทำกำลังดำเนินการทั้งหมด สามารถกดเลือกคลิก Row ด้านล่างเพื่อทำการบันทึกตรวจงาน:*")
             st.dataframe(df_pending, use_container_width=True, hide_index=True)
             
-            audit_idx = st.selectbox("🔍 คลิกเลือกแถวข้อมูลโครงการเพื่อทำการบันทึกผลการตรวจงาน:", pending_indices,
-                                     format_func=lambda x: f"คิวที่ {x} | โพรเจกต์ {GAME_DATA[x]['project_id']} (ระดับ {GAME_DATA[x]['difficulty']}) -> ผู้รับเหมา: {GAME_DATA[x]['contractor']}")
+            audit_idx = st.selectbox("🔍 คลิกเลือกแถวข้อมูลโปรเจ็คเพื่อทำการบันทึกผลการตรวจงาน:", pending_indices,
+                                     format_func=lambda x: f"คิวที่ {x + 1} | โปรเจ็ค {GAME_DATA[x]['project_id']} (ระดับ {GAME_DATA[x]['difficulty']}) -> ผู้รับเหมา: {GAME_DATA[x]['contractor']}")
             
             target_audit = GAME_DATA[audit_idx]
             
             previous_audit_fee = int(target_audit.get("times", 0)) * 2000
             current_balance = int(target_audit["budget"]) - int(target_audit["material_cost"]) - previous_audit_fee
             
-            st.markdown(f"💳 **ตรวจสอบสถานะงบดุลบัญชีโครงการ:**")
-            st.markdown(f"- งบประมาณก้อนลงทุนของโครงการ: `{target_audit['budget']:,}` บาท | - หักต้นทุนราคาของวัสดุรวม: `{target_audit['material_cost']:,}` บาท")
+            st.markdown(f"💳 **ตรวจสอบสถานะงบดุลบัญชีโปรเจ็ค:**")
+            st.markdown(f"- งบประมาณก้อนลงทุนของโปรเจ็ค: `{target_audit['budget']:,}` บาท | - หักต้นทุนราคาของวัสดุรวม: `{target_audit['material_cost']:,}` บาท")
             st.markdown(f"- ส่งเข้าตรวจสะสมมาแล้ว: `{target_audit['times']}` ครั้ง (ตัดยอดงบประมาณตรวจไปแล้ว `{previous_audit_fee:,}` บาท)")
-            st.error(f"💰 ยอดเงินทุนคงเหลือสุทธิของโครงการปัจจุบัน: **{current_balance:,}** บาท (ระบบเตรียมทำการหักยอดตัดสิทธิ์ค่าตรวจรอบนี้เพิ่มอีก **2,000** บาท)")
+            st.error(f"💰 ยอดเงินทุนคงเหลือสุทธิของโปรเจ็คปัจจุบัน: **{current_balance:,}** บาท (ระบบเตรียมทำการหักยอดตัดสิทธิ์ค่าตรวจรอบนี้เพิ่มอีก **2,000** บาท)")
             
             col_au1, col_au2 = st.columns(2)
             with col_au1:
@@ -303,15 +309,15 @@ with tab2:
                 if eval_result == "ผ่าน":
                     GAME_DATA[audit_idx]["result"] = "ผ่าน"
                     GAME_DATA[audit_idx]["net_profit"] = int(target_audit["reward"]) - total_spent
-                    st.success(f"🎉 ตรวจงานผ่านแล้ว! โครงการเปลี่ยนสถานะเป็น [เสร็จสิ้น] และระบบทำการล็อกความยากระดับนี้เรียบร้อย")
+                    st.success(f"🎉 ตรวจงานผ่านแล้ว! โปรเจ็คเปลี่ยนสถานะเป็น [เสร็จสิ้น] และระบบทำการล็อกความยากระดับนี้เรียบร้อย")
                 else:
                     GAME_DATA[audit_idx]["result"] = "ไม่ผ่าน"
-                    st.warning(f"❌ ผลการตรวจงานรอบนี้คือ [ไม่ผ่าน] โครงการยังอยู่ในระบบ สามารถส่งตรวจใหม่ครั้งถัดไปได้")
+                    st.warning(f"❌ ผลการตรวจงานรอบนี้คือ [ไม่ผ่าน] โปรเจ็คยังอยู่ในระบบ สามารถส่งตรวจใหม่ครั้งถัดไปได้")
                     
                 save_json(DATA_FILE, GAME_DATA)
                 st.rerun()
         else:
-            st.info("🎉 ไม่มีโครงการทำกำลังดำเนินการอยู่ (รอตรวจ) ในระบบขณะนี้")
+            st.info("🎉 ไม่มีโปรเจ็คทำกำลังดำเนินการอยู่ (รอตรวจ) ในระบบขณะนี้")
 
         # 💾 ระบบสำรองข้อมูล
         st.markdown("---")
@@ -357,4 +363,4 @@ with tab3:
         with col_c:
             st.bar_chart(df_sc["กำไรสุทธิรวม"])
     else:
-        st.info("ยังไม่มีข้อมูลการสรุปบัญชีโครงการ")
+        st.info("ยังไม่มีข้อมูลการสรุปบัญชีโปรเจ็ค")
