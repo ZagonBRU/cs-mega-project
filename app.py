@@ -41,8 +41,13 @@ for deal in GAME_DATA:
     elif deal["result"] == "ยกเลิก" and STATUS_MAP.get(key) not in ["กำลังดำเนินการ", "เสร็จสิ้น"]:
         STATUS_MAP[key] = "ว่าง"
 
-# 🧭 เมนูแท็บการจัดหน้าสตรีมลิต
-tab1, tab2, tab3 = st.tabs(["🌐 คู่มือและบอร์ดสถานะโปรเจ็ค (สำหรับนักศึกษา)", "🔐 ระบบควบคุมเกม (Staff Only)", "🏆 สรุปคะแนนลีดเดอร์บอร์ด"])
+# 🧭 เมนูแท็บการจัดหน้าสตรีมลิต (เพิ่มแท็บร้านค้าเป็น 4 แท็บ)
+tab1, tab2, tab4, tab3 = st.tabs([
+    "🌐 คู่มือและบอร์ดสถานะโปรเจ็ค (สำหรับนักศึกษา)", 
+    "🔐 ระบบควบคุมเกม (Staff Only)", 
+    "🏪 ระบบสำหรับร้านค้าเบิกจ่ายวัสดุ (Shop Only)",
+    "🏆 สรุปคะแนนลีดเดอร์บอร์ด"
+])
 
 # ==========================================
 # 🌐 TAB 1: บอร์ดคู่มือภารกิจสาธารณะสำหรับนักศึกษา
@@ -98,10 +103,9 @@ with tab2:
             if pwd == PASSWORD: st.session_state["auth"] = True; st.rerun()
             else: st.error("รหัสผ่านไม่ถูกต้อง")
     else:
-        # 📊 Layout [ 1 ส่วน | 2 ส่วน ]
         col_f, col_edit = st.columns([1, 2])
         
-        # 📥 ฝั่งซ้าย (กว้าง 1 ส่วน): ลงทะเบียนโปรเจ็ค + สั่งซื้อวัสดุ
+        # 📥 ฝั่งซ้าย: ลงทะเบียนโปรเจ็ค + สั่งซื้อวัสดุ
         with col_f:
             st.subheader("📝 1. ส่วนลงทะเบียนโปรเจ็ค")
             st.markdown("##### 📥 ฟอร์มลงทะเบียนและสั่งของใหม่")
@@ -124,7 +128,6 @@ with tab2:
                 contractor = st.selectbox("ทีมผู้รับเหมา:", TEAMS, index=1, key="new_con")
                 budget = st.number_input("งบประมาณที่ตกลงกันไว้ (บาท):", min_value=0, value=200000, key="new_budget")
                 
-                # 📈 สัดส่วนแบ่งกำไรแบบกรอกอิสระทั้งสองฝั่ง (Numeric Up-Down)
                 st.markdown("📈 **สัดส่วนแบ่งกำไร นักลงทุน | ผู้รับเหมา (%)**")
                 col_pct1, col_pct2 = st.columns(2)
                 with col_pct1:
@@ -134,6 +137,7 @@ with tab2:
                 
                 # ตารางเปิดบิลคำนวณราคาวัสดุ
                 mat_cost_calc = 0
+                mat_order_details = {} # เก็บรายละเอียดจำนวนสิ่งของ
                 if "reset_trigger" not in st.session_state:
                     st.session_state["reset_trigger"] = 0
                 
@@ -141,6 +145,7 @@ with tab2:
                     for mat, price in MATERIAL_PRICES.items():
                         qty = st.number_input(f"{mat} ({price:,} บ.)", min_value=0, value=0, key=f"order_{mat}_{st.session_state['reset_trigger']}")
                         mat_cost_calc += qty * price
+                        mat_order_details[mat] = qty # บันทึกยอดจำนวนไว้ลงไฟล์กลาง
                         
                     if st.button("🔄 ล้างรายการสั่งซื้อ (Reset เป็น 0 ทั้งหมด)", use_container_width=True):
                         st.session_state["reset_trigger"] += 1
@@ -149,13 +154,12 @@ with tab2:
                 st.markdown(f"📦 **ราคารวมวัสดุสั่งซื้อสุทธิ:** `{mat_cost_calc:,}` บาท")
                 
                 if st.button("📥 ยืนยันการลงทะเบียนโปรเจ็ค", use_container_width=True):
-                    # ตรวจสอบสิทธิ์ผู้รับเหมาว่าติดงานค้างอยู่หรือไม่
                     busy_project = None
                     busy_idx = -1
                     for idx, deal in enumerate(GAME_DATA):
                         if deal["contractor"] == contractor and deal["result"] in ["รอตรวจ", "ไม่ผ่าน"]:
                             busy_project = f"โปรเจ็ค {deal['project_id']} (ระดับ {deal['difficulty']})"
-                            busy_idx = idx + 1  # ปรับให้แสดงผลเป็นคิวเริ่มต้นจาก 1
+                            busy_idx = idx + 1
                             break
                     
                     if investor == contractor: 
@@ -171,7 +175,9 @@ with tab2:
                             "project_id": p_id, "project_name": PROJECT_MASTER[p_id]["name"],
                             "difficulty": int(d_lvl), "reward": reward_amt, "investor": investor,
                             "investor_pct": inv_pct, "contractor": contractor, "contractor_pct": con_pct,
-                            "budget": budget, "material_cost": mat_cost_calc, "times": 0, "result": "รอตรวจ", "net_profit": 0
+                            "budget": budget, "material_cost": mat_cost_calc, "times": 0, "result": "รอตรวจ", "net_profit": 0,
+                            "items_ordered": mat_order_details, # เพิ่มประวัติของที่สั่ง
+                            "shop_received": False # แสตมป์สถานะว่า "ยังไม่ได้มารับของ" ที่ซุ้มร้านค้า
                         })
                         save_json(DATA_FILE, GAME_DATA)
                         st.success("✅ บันทึกข้อมูลลงทะเบียนสำเร็จ!")
@@ -179,7 +185,7 @@ with tab2:
             else:
                 st.info("โปรเจ็คทุกระดับถูกจับจองหรือทำเสร็จสิ้นหมดแล้ว!")
 
-        # 📊 ฝั่งขวา (กว้าง 2 ส่วน): แสดงตารางภาพรวมขนาดใหญ่ พร้อมระบบแก้ไข/ลบ/ขอยกเลิก
+        # 📊 ฝั่งขวา: แสดงตารางภาพรวมขนาดใหญ่ พร้อมระบบแก้ไข/ลบ/ขอยกเลิก
         with col_edit:
             st.subheader("📊 ตารางภาพรวมข้อมูลโปรเจ็ค")
             st.markdown("##### 🔍 ค้นหา แก้ไข หรือลบข้อมูลดีลงานที่คีย์ผิด")
@@ -189,7 +195,6 @@ with tab2:
                 df_display = df_overview[display_cols].copy()
                 df_display.columns = ["รหัส", "ระดับ", "นักลงทุน", "กำไรนายทุน %", "ผู้รับเหมา", "กำไรผู้รับเหมา %", "ค่าวัสดุ", "งบลงทุน", "สถานะผล"]
                 
-                # ปรับ Dropdown การเลือกคิวงานให้เริ่มต้นนับคิวจาก 1
                 selected_row_idx = st.selectbox("🎯 คลิกเลือกแถวคิวงานที่ต้องการ แก้ไข/ลบถาวร/ขอยกเลิก:", range(len(GAME_DATA)), 
                                                  format_func=lambda x: f"คิวที่ {x + 1} | โปรเจ็ค {GAME_DATA[x]['project_id']} (ระดับ {GAME_DATA[x]['difficulty']}) -> ทีม {GAME_DATA[x]['contractor']}")
                 
@@ -198,7 +203,6 @@ with tab2:
                 col_btn1, col_btn2 = st.columns(2)
                 with col_btn1:
                     with st.expander("✏️ ฟอร์มแก้ไขข้อมูล / 🗑️ ลบ Record คีย์ผิดพลาด"):
-                        # 🛠️ [จุดแก้ไขหลัก] แสดงคิวงานปัจจุบันแบบเริ่มจาก 1 และเซ็ตเป็น Read-only (disabled=True)
                         st.text_input("🎯 คิวที่ทำงานปัจจุบัน (Read-Only):", value=str(selected_row_idx + 1), disabled=True)
                         
                         edit_inv = st.selectbox("แก้ไขนักลงทุน:", TEAMS, index=TEAMS.index(target_edit["investor"]), key=f"ed_inv_{selected_row_idx}")
@@ -262,15 +266,12 @@ with tab2:
                             st.warning("⚠️ เปลี่ยนสถานะเป็นยกเลิกแล้ว (ทีมนายทุนสูญเสียเงินลงทุนก้อนแรกเรียบร้อย ประวัติการจองยังคงอยู่ในตาราง)")
                             st.rerun()
                 
-                # แสดงเลขลำดับตารางให้เริ่มนับจาก 1 สอดคล้องกับคิวหน้างาน
                 df_display.index = range(1, len(df_display) + 1)
                 st.dataframe(df_display, use_container_width=True)
             else:
                 st.info("ยังไม่มีข้อมูลลงทะเบียนในระบบ")
 
-        # ---------------------------------------------------------
-        # ⏱️ ส่วนที่ 3: บันทึกผลการตรวจงาน
-        # ---------------------------------------------------------
+        # ส่วนบันทึกผลการตรวจงาน
         st.markdown("---")
         st.subheader("⏱️ 2. ส่วนบันทึกผลการตรวจ")
         
@@ -335,6 +336,72 @@ with tab2:
                     save_json(DATA_FILE, backup_data)
                     st.success("✅ กู้คืนระบบบัญชีหน้างานสำเร็จ!")
                     st.rerun()
+
+# ==========================================
+# 🏪 TAB 4: หลังบ้านสตาฟคุมร้านค้าวัสดุอุปกรณ์ (Shop Only)
+# ==========================================
+with tab4:
+    st.header("🏪 เคาน์เตอร์ตรวจเช็คและจัดส่งวัสดุกิจกรรม")
+    st.caption("สตาฟประจำซุ้มของเล่น สามารถตรวจดูลิสต์สิ่งของตามใบเปิดบิลของแต่ละทีม และกดยืนยันเมื่อส่งมอบของครบถ้วน")
+    
+    # ดึงคิวเฉพาะโปรเจ็คที่ยังไม่ได้ยกเลิก และทีมยังไม่ได้มารับของออกมารายงาน
+    uncompleted_shop_deals = [idx for idx, deal in enumerate(GAME_DATA) if deal["result"] != "ยกเลิก" and not deal.get("shop_received", False)]
+    
+    if uncompleted_shop_deals:
+        st.subheader("🛒 1. คิวงานเบิกพัสดุอุปกรณ์ที่รอจัดส่ง")
+        shop_select_idx = st.selectbox(
+            "🎯 เลือกคิวงานเพื่อดูรายการวัสดุที่ต้องจัดให้เด็ก:",
+            uncompleted_shop_deals,
+            format_func=lambda x: f"คิวที่ {x + 1} | ทีมผู้รับเหมา: {GAME_DATA[x]['contractor']} -> จองโปรเจ็ค {GAME_DATA[x]['project_id']} (ระดับ {GAME_DATA[x]['difficulty']})"
+        )
+        
+        target_shop_deal = GAME_DATA[shop_select_idx]
+        ordered_items_dict = target_shop_deal.get("items_ordered", {})
+        
+        # แสดงรายการวัสดุที่ต้องจัดส่งแยกเป็นตารางให้อ่านง่าย
+        st.markdown(f"📦 **รายการบิลวัสดุของทีม [{target_shop_deal['contractor']}] (โปรเจ็ค {target_shop_deal['project_id']} ระดับ {target_shop_deal['difficulty']}):**")
+        
+        shop_records = []
+        for mat_name, qty in ordered_items_dict.items():
+            if qty > 0: # โชว์เฉพาะสิ่งของที่มียอดสั่งซื้อมากกว่า 0 ชิ้น
+                shop_records.append({"รายการวัสดุอุปกรณ์": mat_name, "จำนวนที่สั่งซื้อ": f"{qty:,} ชิ้น"})
+        
+        if shop_records:
+            df_shop_bill = pd.DataFrame(shop_records)
+            st.table(df_shop_bill)
+            
+            # ปุ่มกดยืนยันการส่งของ
+            if st.button(f"✅ ยืนยันว่าทีม [{target_shop_deal['contractor']}] มารับของครบเรียบร้อยแล้ว", type="primary", use_container_width=True):
+                GAME_DATA[shop_select_idx]["shop_received"] = True
+                save_json(DATA_FILE, GAME_DATA)
+                st.success(f"📦 บันทึกสถานะการส่งมอบของให้ทีม {target_shop_deal['contractor']} สำเร็จ คิวงานถูกตัดออกจากระบบหน้าจ่ายของแล้ว!")
+                st.rerun()
+        else:
+            st.info("โปรเจ็คคิวนี้ไม่มีการสั่งซื้อวัสดุเพิ่มเติมในระบบบิล (งบค่าของเป็น 0)")
+            if st.button(f"✅ ยืนยันการผ่านสิทธิ์คิวนี้ (ไม่มีของต้องจ่าย)", use_container_width=True):
+                GAME_DATA[shop_select_idx]["shop_received"] = True
+                save_json(DATA_FILE, GAME_DATA)
+                st.rerun()
+    else:
+        st.info("🎉 สบายแล้ว! ปัจจุบันไม่มีคิวสั่งของค้างจ่ายในระบบ หรือทุกทีมเข้ามารับวัสดุอุปกรณ์ไปครบถ้วนหมดแล้วครับ")
+
+    # ส่วนประวัติการรับของด้านล่าง (เผื่อตรวจย้อนหลัง)
+    st.markdown("---")
+    st.subheader("📋 2. ประวัติการรับพัสดุอุปกรณ์ที่เสร็จสิ้นแล้ว")
+    completed_shop_records = []
+    for idx, deal in enumerate(GAME_DATA):
+        if deal.get("shop_received", False):
+            # ดึงเฉพาะของที่สั่งมากกว่า 0 ชิ้นมาทำเป็นข้อความสั้นๆ
+            items_summary = ", ".join([f"{k} ({v} ชิ้น)" for k, v in deal.get("items_ordered", {}).items() if v > 0])
+            completed_shop_records.append({
+                "คิวที่": idx + 1,
+                "ทีมผู้รับเหมา": deal["contractor"],
+                "โปรเจ็ค-ระดับ": f"{deal['project_id']} (ระดับ {deal['difficulty']})",
+                "รายการพัสดุที่รับไป": items_summary if items_summary else "ไม่เบิกของ",
+                "สถานะ": "🟢 รับของแล้ว"
+            })
+    if completed_shop_records:
+        st.dataframe(pd.DataFrame(completed_shop_records), use_container_width=True, hide_index=True)
 
 # ==========================================
 # 🏆 TAB 3: ลีดเดอร์บอร์ดจัดอันดับคะแนน
