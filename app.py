@@ -28,7 +28,7 @@ MATERIAL_PRICES = load_json(ITEM_FILE, {"ไม้เสียบลูกชิ
 PROJECT_MASTER = load_json(PROJECT_FILE, {})
 GAME_DATA = load_json(DATA_FILE, [])
 
-# ประมวลผลหา "สถานะปัจจุบัน" ของโปรเจกต์แต่ละระดับความยากแบบ Dynamic
+# 🔍 ประมวลผลหา "สถานะปัจจุบัน" ของโปรเจกต์แต่ละระดับความยากแบบ Dynamic
 STATUS_MAP = {}
 for deal in GAME_DATA:
     key = f"{deal['project_id']}-{deal['difficulty']}"
@@ -36,7 +36,9 @@ for deal in GAME_DATA:
         STATUS_MAP[key] = "เสร็จสิ้น"
     elif deal["result"] == "รอตรวจ" and STATUS_MAP.get(key) != "เสร็จสิ้น":
         STATUS_MAP[key] = "กำลังดำเนินการ"
-    elif deal["result"] in ["ไม่ผ่าน", "ยกเลิก"] and STATUS_MAP.get(key) not in ["กำลังดำเนินการ", "เสร็จสิ้น"]:
+    elif deal["result"] == "ไม่ผ่าน" and STATUS_MAP.get(key) not in ["กำลังดำเนินการ", "เสร็จสิ้น"]:
+        STATUS_MAP[key] = "กำลังดำเนินการ"  # งานไม่ผ่านก็ยังถือว่าทีมเดิมถือสัญญาอยู่ กำลังดำเนินการแก้ไข
+    elif deal["result"] == "ยกเลิก" and STATUS_MAP.get(key) not in ["กำลังดำเนินการ", "เสร็จสิ้น"]:
         STATUS_MAP[key] = "ว่าง"
 
 # 🧭 เมนูแท็บการจัดหน้าสตรีมลิต
@@ -94,15 +96,17 @@ with tab2:
         with col_f:
             st.subheader("📝 1. ส่วนลงทะเบียนโครงการ")
             st.markdown("##### 📥 ฟอร์มลงทะเบียนและสั่งของใหม่")
+            
+            # 🛠️ [จุดแก้ไขหลัก] กรองเมนูตัวเลือกดีลงาน: เฉพาะโครงการระดับที่สถานะเป็น "ว่าง" เท่านั้นที่จะโผล่มาให้เลือก
             deal_choices = []
             for pid, pdata in PROJECT_MASTER.items():
                 for lvl in pdata["levels"].keys():
                     key = f"{pid}-{lvl}"
-                    if STATUS_MAP.get(key) != "เสร็จสิ้น":
+                    if STATUS_MAP.get(key, "ว่าง") == "ว่าง":
                         deal_choices.append(key)
             
             if deal_choices:
-                chosen_key = st.selectbox("เลือกโครงการ (รหัสโครงการ-ระดับ):", sorted(deal_choices), 
+                chosen_key = st.selectbox("เลือกโครงการ (รหัสโครงการ-ระดับ):", sorted(deal_choices, key=lambda x: (int(x.split('-')[0]), int(x.split('-')[1]))), 
                                           format_func=lambda x: f"งาน {x.split('-')[0]} {PROJECT_MASTER[x.split('-')[0]]['name']} (ระดับ {x.split('-')[1]})", key="new_deal_box")
                 p_id, d_lvl = chosen_key.split("-")
                 reward_amt = PROJECT_MASTER[p_id]["levels"][d_lvl]["reward"]
@@ -152,7 +156,6 @@ with tab2:
                         st.error(f"❌ สัดส่วนแบ่งกำไรรวมกันต้องได้ 100% พอดี (ปัจจุบันได้ {inv_pct + con_pct}%)")
                     elif busy_project is not None:
                         st.error(f"❌ ทีม **[{contractor}]** กำลังมีงานค้างดำเนินการอยู่ ({busy_project} ในคิวที่ {busy_idx}) ต้องส่งตรวจให้ผ่านหรือให้สตาฟลบแถวข้อมูลออกก่อนจึงจะจองงานใหม่ได้")
-                    # 🚨 [จุดเพิ่มเกณฑ์ดักบัญชี] ตรวจสอบงบประเมินโครงการ (Budget) ต้องห้ามต่ำกว่า ยอดสั่งซื้อของ (Material Cost)
                     elif budget < mat_cost_calc:
                         st.error(f"❌ งบประมาณไม่เพียงพอ! งบประมาณตั้งต้นของโครงการ ({budget:,} บาท) จะต้องสูงกว่าหรือเท่ากับราคารวมวัสดุสั่งซื้อ ({mat_cost_calc:,} บาท) เสมอครับ")
                     else:
@@ -166,7 +169,7 @@ with tab2:
                         st.success("✅ บันทึกข้อมูลลงทะเบียนสำเร็จ!")
                         st.rerun()
             else:
-                st.info("โครงการทุกระดับถูกทำเสร็จสิ้นหมดแล้ว!")
+                st.info("โครงการทุกระดับถูกจับจองหรือทำเสร็จสิ้นหมดแล้ว!")
 
         # 📊 ฝั่งขวา (กว้าง 2 ส่วน): แสดงตารางภาพรวมขนาดใหญ่ พร้อมระบบแก้ไข/ลบ/ขอยกเลิก
         with col_edit:
@@ -202,7 +205,6 @@ with tab2:
                         if st.button("💾 บันทึกการแก้ไขข้อมูล", key=f"btn_save_ed_{selected_row_idx}", use_container_width=True):
                             if edit_inv_pct + edit_con_pct != 100:
                                 st.error(f"❌ บันทึกไม่ได้! สัดส่วนแก้ไขรวมกันต้องได้ 100% พอดี (ปัจจุบันได้ {edit_inv_pct + edit_con_pct}%)")
-                            # ดักเกณฑ์ตอนแก้ไขข้อมูลด้วยเช่นกัน
                             elif edit_bug < edit_mat:
                                 st.error(f"❌ งบประมาณแก้ไขไม่เพียงพอ! งบลงทุน ({edit_bug:,} บ.) ต้องมากกว่าราคาของวัสดุ ({edit_mat:,} บ.)")
                             else:
