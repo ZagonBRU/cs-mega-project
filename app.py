@@ -204,8 +204,8 @@ if check_staff_authentication(tab2, "auth_tab2"):
                 df_display = df_overview[display_cols].copy()
                 df_display.columns = ["รหัส", "ระดับ", "นักลงทุน", "กำไรนายทุน %", "ผู้รับเหมา", "กำไรผู้รับเหมา %", "ค่าวัสดุ", "งบลงทุน", "สถานะผล"]
                 
-                selected_row_idx = st.selectbox("🎯 คลิกเลือกแถวคิวงานที่ต้องการ แก้ไข/ลบถาวร/ขอยกเลิก:", range(len(GAME_DATA)), 
-                                                 format_func=lambda x: f"คิวที่ {x + 1} | โปรเจ็ค {GAME_DATA[x]['project_id']} (ระดับ {GAME_DATA[x]['difficulty']}) -> ทีม {GAME_DATA[x]['contractor']}")
+                selected_row_idx = st.selectbox("🎯 คลิกเลือกแถวคิวงานที่ต้องการ แก้ไข/ลบถาวร/ขอยกเลิก:", 
+                    range(len(GAME_DATA)), format_func=lambda x: f"คิวที่ {x + 1} | โปรเจ็ค {GAME_DATA[x]['project_id']} (ระดับ {GAME_DATA[x]['difficulty']}) -> ทีม {GAME_DATA[x]['contractor']}" + (" (ยกเลิก)" if GAME_DATA[x]['result'] == "ยกเลิก" else ""))
                 
                 target_edit = GAME_DATA[selected_row_idx]
                 
@@ -293,7 +293,7 @@ if check_staff_authentication(tab2, "auth_tab2"):
             st.dataframe(df_pending, use_container_width=True, hide_index=True)
             
             audit_idx = st.selectbox("🔍 คลิกเลือกแถวข้อมูลโปรเจ็คเพื่อทำการบันทึกผลการตรวจงาน:", pending_indices,
-                                     format_func=lambda x: f"คิวที่ {x + 1} | โปรเจ็ค {GAME_DATA[x]['project_id']} (ระดับ {GAME_DATA[x]['difficulty']}) -> ผู้รับเหมา: {GAME_DATA[x]['contractor']}")
+                                     format_func=lambda x: f"คิวที่ {x + 1} | โปรเจ็ค {GAME_DATA[x]['project_id']} (ระดับ {GAME_DATA[x]['difficulty']}) -> ผู้รับเหมา: {GAME_DATA[x]['contractor']}" + (" (ยกเลิก)" if GAME_DATA[x]['result'] == "ยกเลิก" else ""))
             
             target_audit = GAME_DATA[audit_idx]
             
@@ -361,7 +361,7 @@ if check_staff_authentication(tab4, "auth_tab4"):
             shop_select_idx = st.selectbox(
                 "🎯 เลือกคิวงานเพื่อดูรายการวัสดุที่ต้องจัดให้เด็ก:",
                 uncompleted_shop_deals,
-                format_func=lambda x: f"คิวที่ {x + 1} | ทีมผู้รับเหมา: {GAME_DATA[x]['contractor']} -> จองโปรเจ็ค {GAME_DATA[x]['project_id']} (ระดับ {GAME_DATA[x]['difficulty']})"
+                format_func=lambda x: f"คิวที่ {x + 1} | ทีมผู้รับเหมา: {GAME_DATA[x]['contractor']} -> จองโปรเจ็ค {GAME_DATA[x]['project_id']} (ระดับ {GAME_DATA[x]['difficulty']})" + (" (ยกเลิก)" if GAME_DATA[x]['result'] == "ยกเลิก" else "")
             )
             
             target_shop_deal = GAME_DATA[shop_select_idx]
