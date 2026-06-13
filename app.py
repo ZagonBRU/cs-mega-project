@@ -88,12 +88,13 @@ with tab2:
             else: st.error("รหัสผ่านไม่ถูกต้อง")
     else:
         # ---------------------------------------------------------
-        # ส่วนที่ 1: ลงทะเบียนโครงการ + สั่งซื้อวัสดุ (ฝั่งซ้าย)
+        # 📊 เปลี่ยนอัตราส่วนสัดส่วน Layout จากเดิม 1:1.2 เป็น [ 1 | 2 ] เพื่อเพิ่มพื้นที่ให้ตารางภาพรวม
         # ---------------------------------------------------------
-        st.subheader("📝 1. ส่วนลงทะเบียนโครงการ & บันทึกบิลซื้อวัสดุ")
-        col_f, col_edit = st.columns([1, 1.2])
+        col_f, col_edit = st.columns([1, 2])
         
+        # 📥 ฝั่งซ้าย (กว้าง 1 ส่วน): ฟอมลงทะเบียนงาน + ซื้อวัสดุ
         with col_f:
+            st.subheader("📝 1. ส่วนลงทะเบียนโครงการ")
             st.markdown("##### 📥 ฟอร์มลงทะเบียนและสั่งของใหม่")
             deal_choices = []
             for pid, pdata in PROJECT_MASTER.items():
@@ -110,11 +111,22 @@ with tab2:
                 
                 st.markdown(f"💰 **มูลค่าสัญญาโครงการ:** `{reward_amt:,}` บาท")
                 investor = st.selectbox("ทีมนักลงทุน:", TEAMS, index=0, key="new_inv")
-                inv_pct = st.number_input("สัดส่วนแบ่งกำไรฝั่งนักลงทุน %", min_value=0, max_value=100, value=60, key="new_inv_pct")
                 contractor = st.selectbox("ทีมผู้รับเหมา:", TEAMS, index=1, key="new_con")
                 budget = st.number_input("งบประมาณที่ตกลงกันไว้ (บาท):", min_value=0, value=200000, key="new_budget")
                 
-                # ตารางเปิดบิลวัสดุ (คิดเงินรวมเฉลี่ย ไม่ต้องบันทึกไอเทมแยก)
+                # ---------------------------------------------------------
+                # 🤝 ยุบรวม Row สัดส่วนแบ่งกำไร และคำนวณ Auto-Lock รวมได้ 100% เสมอ
+                # ---------------------------------------------------------
+                st.markdown("📈 **สัดส่วนแบ่งกำไร นักลงทุน | ผู้รับเหมา (%)**")
+                col_pct1, col_pct2 = st.columns(2)
+                with col_pct1:
+                    inv_pct = st.number_input("นักลงทุน", min_value=0, max_value=100, value=40, step=1, key="new_inv_pct")
+                with col_pct2:
+                    # ฝั่งผู้รับเหมาคำนวณอัตโนมัติจาก (100 - นักลงทุน) ทันที ล็อกให้รวมได้ 100 เสมอ
+                    con_pct = 100 - inv_pct
+                    st.number_input("ผู้รับเหมา", value=con_pct, disabled=True, key="new_con_pct_display")
+                
+                # ตารางเปิดบิลวัสดุ 
                 mat_cost_calc = 0
                 with st.expander("🛒 เปิดบิลคำนวณราคาวัสดุ (สั่งซื้อได้ครั้งเดียว)", expanded=False):
                     for mat, price in MATERIAL_PRICES.items():
@@ -129,7 +141,7 @@ with tab2:
                         GAME_DATA.append({
                             "project_id": p_id, "project_name": PROJECT_MASTER[p_id]["name"],
                             "difficulty": int(d_lvl), "reward": reward_amt, "investor": investor,
-                            "investor_pct": inv_pct, "contractor": contractor, "contractor_pct": 100 - inv_pct,
+                            "investor_pct": inv_pct, "contractor": contractor, "contractor_pct": con_pct,
                             "budget": budget, "material_cost": mat_cost_calc, "times": 0, "result": "รอตรวจ", "net_profit": 0
                         })
                         save_json(DATA_FILE, GAME_DATA)
@@ -138,58 +150,69 @@ with tab2:
             else:
                 st.info("โครงการทุกระดับถูกทำเสร็จสิ้นหมดแล้ว!")
 
-        # ---------------------------------------------------------
-        # ส่วนที่ 2: แสดงตารางภาพรวมโครงการ และระบบแก้ไข/ยกเลิก (ฝั่งขวา)
-        # ---------------------------------------------------------
+        # 📊 ฝั่งขวา (กว้าง 2 ส่วน): แสดงตารางภาพรวมขนาดใหญ่ขึ้น พร้อมระบบแก้ไขดีล/ขอยกเลิก
         with col_edit:
-            st.markdown("##### 📊 ตารางภาพรวมและระบบแก้ไขข้อมูล / ขอยกเลิก")
+            st.subheader("📊 ตารางภาพรวมข้อมูลโครงการ")
+            st.markdown("##### 🔍 ค้นหา แก้ไข หรือขอยกเลิกข้อมูลดีลงาน")
             if GAME_DATA:
                 df_overview = pd.DataFrame(GAME_DATA)
-                display_cols = ["project_id", "difficulty", "investor", "contractor", "material_cost", "budget", "result"]
+                display_cols = ["project_id", "difficulty", "investor", "investor_pct", "contractor", "contractor_pct", "material_cost", "budget", "result"]
                 df_display = df_overview[display_cols].copy()
-                df_display.columns = ["รหัส", "ระดับ", "นักลงทุน", "ผู้รับเหมา", "ค่าวัสดุ", "งบลงทุน", "ผลการตรวจ"]
+                df_display.columns = ["รหัส", "ระดับ", "นักลงทุน", "กำไรนายทุน %", "ผู้รับเหมา", "กำไรผู้รับเหมา %", "ค่าวัสดุ", "งบลงทุน", "สถานะผล"]
                 
-                # เครื่องมือเลือก Row จากตารางเพื่อนำมาแก้ไขข้อมูลที่ผิดพลาด
-                selected_row_idx = st.selectbox("🎯 เลือกแถวคิวงานที่ต้องการ แก้ไขข้อมูล / ขอยกเลิก:", range(len(GAME_DATA)), 
+                # ตัวเลือกคลิก Row ผ่าน Selectbox เพื่อนำข้อมูลขึ้นมาแก้ไขหลังบ้าน
+                selected_row_idx = st.selectbox("🎯 คลิกเลือกแถวคิวงานที่ต้องการ แก้ไขข้อมูล / ขอยกเลิก:", range(len(GAME_DATA)), 
                                                  format_func=lambda x: f"คิวที่ {x} | โพรเจกต์ {GAME_DATA[x]['project_id']} (ระดับ {GAME_DATA[x]['difficulty']}) -> ทีม {GAME_DATA[x]['contractor']}")
                 
                 target_edit = GAME_DATA[selected_row_idx]
                 
                 col_btn1, col_btn2 = st.columns(2)
                 with col_btn1:
-                    with st.expander("✏️ คลิกเพื่อแก้ไขกรณีลงทะเบียนผิด"):
+                    with st.expander("✏️ ฟอร์มแก้ไขกรณีคีย์ข้อมูลผิดพลาด"):
                         edit_inv = st.selectbox("แก้ไขนักลงทุน:", TEAMS, index=TEAMS.index(target_edit["investor"]), key=f"ed_inv_{selected_row_idx}")
-                        edit_pct = st.number_input("แก้ไขสัดส่วน %:", min_value=0, max_value=100, value=int(target_edit["investor_pct"]), key=f"ed_pct_{selected_row_idx}")
+                        
+                        st.markdown("⚡ *แก้ไขสัดส่วนแบ่งกำไร (%)*")
+                        col_ed_p1, col_ed_p2 = st.columns(2)
+                        with col_ed_p1:
+                            edit_inv_pct = st.number_input("นักลงทุน", min_value=0, max_value=100, value=int(target_edit["investor_pct"]), key=f"ed_inv_pct_{selected_row_idx}")
+                        with col_ed_p2:
+                            edit_con_pct = 100 - edit_inv_pct
+                            st.number_input("ผู้รับเหมา", value=edit_con_pct, disabled=True, key=f"ed_con_pct_disp_{selected_row_idx}")
+                            
                         edit_con = st.selectbox("แก้ไขผู้รับเหมา:", TEAMS, index=TEAMS.index(target_edit["contractor"]), key=f"ed_con_{selected_row_idx}")
                         edit_bug = st.number_input("แก้ไขงบลงทุน:", min_value=0, value=int(target_edit["budget"]), key=f"ed_bug_{selected_row_idx}")
                         edit_mat = st.number_input("แก้ไขราคารวมวัสดุ:", min_value=0, value=int(target_edit["material_cost"]), key=f"ed_mat_{selected_row_idx}")
                         
-                        if st.button("💾 บันทึกการแก้ไข", key=f"btn_save_ed_{selected_row_idx}"):
-                            GAME_DATA[selected_row_idx].update({"investor": edit_inv, "investor_pct": edit_pct, "contractor": edit_con, "contractor_pct": 100 - edit_pct, "budget": edit_bug, "material_cost": edit_mat})
+                        if st.button("💾 บันทึกการแก้ไขข้อมูล", key=f"btn_save_ed_{selected_row_idx}", use_container_width=True):
+                            GAME_DATA[selected_row_idx].update({
+                                "investor": edit_inv, "investor_pct": edit_inv_pct, 
+                                "contractor": edit_con, "contractor_pct": edit_con_pct, 
+                                "budget": edit_bug, "material_cost": edit_mat
+                            })
                             save_json(DATA_FILE, GAME_DATA)
-                            st.success("แก้ไขข้อมูลเรียบร้อย!")
+                            st.success("แก้ไขข้อมูลในระบบเรียบร้อย!")
                             st.rerun()
                             
                 with col_btn2:
-                    if target_edit["result"] == "รอตรวจ":
-                        if st.button("🚨 ขอยกเลิกโครงการนี้", type="primary", key=f"btn_cancel_{selected_row_idx}", use_container_width=True):
-                            # กฎเหล็ก: ผู้รับเหมาไม่เสียเงิน แต่นายทุนเสียเงินลงทุนก้อนแรกทันที (net_profit = -budget)
+                    if target_edit["result"] not in ["ผ่าน", "ยกเลิก"]:
+                        if st.button("🚨 ขอยกเลิกโครงการนี้ (นายทุนรับความเสี่ยง)", type="primary", key=f"btn_cancel_{selected_row_idx}", use_container_width=True):
                             GAME_DATA[selected_row_idx]["result"] = "ยกเลิก"
                             GAME_DATA[selected_row_idx]["net_profit"] = -int(target_edit["budget"])
                             save_json(DATA_FILE, GAME_DATA)
                             st.warning("⚠️ ยกเลิกโครงการแล้ว (ทีมนายทุนสูญเสียเงินลงทุนก้อนแรกเรียบร้อย)")
                             st.rerun()
-                st.dataframe(df_display, use_container_width=True)
+                
+                # แสดงผลตารางแบบขยายความกว้างเต็มพื้นที่ 2 ส่วน
+                st.dataframe(df_display.style.format({"ค่าวัสดุ": "{:,.0f}", "งบลงทุน": "{:,.0f}"}), use_container_width=True, hide_index=True)
             else:
                 st.info("ยังไม่มีข้อมูลลงทะเบียนในระบบ")
 
         # ---------------------------------------------------------
-        # ส่วนที่ 3: ⏱️ บันทึกผลการตรวจงาน (ด้านล่างสุด)
+        # ส่วนที่ 3: ⏱️ บันทึกผลการตรวจ (ด้านล่างสุด)
         # ---------------------------------------------------------
         st.markdown("---")
-        st.subheader("⏱️ 2. ส่วนบันทึกผลการตรวจงาน")
+        st.subheader("⏱️ 2. ส่วนบันทึกผลการตรวจ")
         
-        # กรองดึงเฉพาะรายการโครงการทั้งหมดที่ "กำลังดำเนินการ" อยู่ (สถานะผลตรวจเป็น 'รอตรวจ' หรือ 'ไม่ผ่าน')
         pending_indices = [idx for idx, r in enumerate(GAME_DATA) if r["result"] in ["รอตรวจ", "ไม่ผ่าน"]]
         
         if pending_indices:
@@ -198,14 +221,11 @@ with tab2:
             st.markdown("*ตารางโครงการที่กำลังดำเนินการอยู่ทั้งหมด หน้างานจะส่งตรวจกี่ครั้งก็ได้จนกว่าจะผ่าน:*")
             st.dataframe(df_pending, use_container_width=True, hide_index=True)
             
-            # คลิก Row ตรวจสอบสถานะงานผ่าน Dropdown Selector Index
             audit_idx = st.selectbox("🔍 คลิกเลือกโครงการที่กำลังดำเนินการอยู่เพื่อบันทึกผลการตรวจงาน:", pending_indices,
                                      format_func=lambda x: f"โพรเจกต์ {GAME_DATA[x]['project_id']} (ระดับ {GAME_DATA[x]['difficulty']}) -> ผู้รับเหมา: {GAME_DATA[x]['contractor']}")
             
             target_audit = GAME_DATA[audit_idx]
             
-            # 💰 ระบบคำนวณยอดเงินคงเหลือเพื่อเตรียมหักค่าตรวจ 2,000 บาท
-            # เงินคงเหลือคำนวณจาก: งบประมาณลงทุน - ค่าวัสดุ - (จำนวนครั้งที่เคยตรวจ * 2000)
             previous_audit_fee = int(target_audit.get("times", 0)) * 2000
             current_balance = int(target_audit["budget"]) - int(target_audit["material_cost"]) - previous_audit_fee
             
@@ -214,7 +234,6 @@ with tab2:
             st.markdown(f"- เคยส่งตรวจมาแล้ว: `{target_audit['times']}` ครั้ง (หักเงินสะสมไปแล้ว `{previous_audit_fee:,}` บาท)")
             st.error(f"💰 ยอดเงินทุนคงเหลือของโครงการปัจจุบัน: **{current_balance:,}** บาท (ระบบเตรียมตัดสิทธิ์หักค่าตรวจรอบนี้อีก **2,000** บาท)")
             
-            # ฟอร์มบันทึกครั้งที่ตรวจและผลลัพธ์
             col_au1, col_au2 = st.columns(2)
             with col_au1:
                 next_time_count = int(target_audit.get("times", 0)) + 1
@@ -223,18 +242,15 @@ with tab2:
                 eval_result = st.selectbox("ผลลัพธ์การตรวจสอบรอบนี้:", ["ผ่าน", "ไม่ผ่าน"], key="eval_result_box")
                 
             if st.button("💾 ยืนยันการบันทึกผลการตรวจงานรอบนี้", type="primary"):
-                # ทำการหักค่าตรวจเพิ่มในระบบและจำจำนวนครั้งสะสม
                 GAME_DATA[audit_idx]["times"] = next_time_count
                 total_spent = int(target_audit["material_cost"]) + (next_time_count * 2000)
                 
                 if eval_result == "ผ่าน":
                     GAME_DATA[audit_idx]["result"] = "ผ่าน"
-                    # คำนวณกำไรสุทธิรวม: (เงินรางวัล - เงินทุนค่าวัสดุและค่าตรวจทั้งหมด)
                     GAME_DATA[audit_idx]["net_profit"] = int(target_audit["reward"]) - total_spent
                     st.success(f"🎉 ยินดีด้วย! โครงการเปลี่ยนสถานะเป็น [เสร็จสิ้น] และล็อกระบบระดับความยากนี้เรียบร้อยแล้ว")
                 else:
                     GAME_DATA[audit_idx]["result"] = "ไม่ผ่าน"
-                    # หากไม่ผ่าน โครงการยังคงค้างอยู่ในระบบ ดำเนินการต่อเพื่อส่งตรวจใหม่รอบหน้าได้ เงินปันผลยังไม่คิดจนกว่าจะผ่านหรือขอยกเลิก
                     st.warning(f"❌ ผลการตรวจคิวนี้คือ [ไม่ผ่าน] โครงการยังคงดำเนินการต่อไปเพื่อแก้ไขและส่งตรวจใหม่ครั้งถัดไป")
                     
                 save_json(DATA_FILE, GAME_DATA)
@@ -242,9 +258,9 @@ with tab2:
         else:
             st.info("🎉 ไม่มีโครงการที่กำลังดำเนินการ (กำลังรอตรวจ) ในระบบขณะนี้")
 
-        # 💾 ระบบสำรองข้อมูลหน้างานกันหาย (Backup & Restore)
+        # 💾 ระบบสำรองข้อมูลหน้างานกันหาย
         st.markdown("---")
-        st.subheader("💾 ระบบรักษาความปลอดภัยข้อมูล (กันระบบคลาวด์หลับ)")
+        st.subheader("💾 ระบบรักษาความปลอดภัยข้อมูล")
         col_bk1, col_bk2 = st.columns(2)
         with col_bk1:
             with open(DATA_FILE, "r", encoding="utf-8") as f:
@@ -271,7 +287,6 @@ with tab3:
                 scores[d["investor"]]["กำไรบทบาทนายทุน"] += d["net_profit"] * (d["investor_pct"]/100)
                 scores[d["contractor"]]["กำไรบทบาทผู้รับเหมา"] += d["net_profit"] * (d["contractor_pct"]/100)
             elif d["result"] == "ยกเลิก":
-                # ถ้ายกเลิก นายทุนรับความเสี่ยงยอดติดลบตามงบก้อนแรก ผู้รับเหมาได้ 0 (ไม่เจ็บตัว)
                 scores[d["investor"]]["กำไรบทบาทนายทุน"] += d["net_profit"]
                 
     for t in TEAMS: 
