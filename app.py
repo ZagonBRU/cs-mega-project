@@ -72,7 +72,7 @@ with tab1:
             if val == "กำลังดำเนินการ": return 'background-color: #fff3cd; color: #664d03; font-weight: bold;'
             return 'background-color: #f8d7da; color: #842029; text-decoration: line-through;'
         
-        st.table(df_lvl.style.applymap(color_status, subset=['สถานะปัจจุบัน']))
+        st.table(df_lvl.style.map(color_status, subset=['สถานะปัจจุบัน']))
     else:
         st.error("ไม่พบไฟล์ Project_List.json กรุณาตรวจสอบการวางไฟล์")
 
