@@ -122,26 +122,22 @@ with tab2:
                 
                 # ตารางเปิดบิลคำนวณราคาวัสดุ
                 mat_cost_calc = 0
-                
-                # 💡 [จุดเพิ่มระบบ Reset วัสดุ] ใช้ Session State คุมค่าเริ่มต้นเพื่อให้สั่งเคลียร์เป็น 0 ได้จริง
                 if "reset_trigger" not in st.session_state:
                     st.session_state["reset_trigger"] = 0
                 
                 with st.expander("🛒 เปิดบิลคำนวณราคาวัสดุ (สั่งซื้อได้ครั้งเดียว)", expanded=False):
                     for mat, price in MATERIAL_PRICES.items():
-                        # ผูกคีย์พิเศษที่มีพ่วงไอดีของปุ่ม Reset เข้าไปด้วย
                         qty = st.number_input(f"{mat} ({price:,} บ.)", min_value=0, value=0, key=f"order_{mat}_{st.session_state['reset_trigger']}")
                         mat_cost_calc += qty * price
                         
-                    # ปุ่มเคลียร์ค่าใบเสร็จทั้งหมดเป็น 0 ในคลิกเดียว
                     if st.button("🔄 ล้างรายการสั่งซื้อ (Reset เป็น 0 ทั้งหมด)", use_container_width=True):
-                        st.session_state["reset_trigger"] += 1  # ขยับเลเวลเพื่อบังคับให้ช่องสตรีมลิตรีเซ็ตเป็น 0
+                        st.session_state["reset_trigger"] += 1
                         st.rerun()
                         
                 st.markdown(f"📦 **ราคารวมวัสดุสั่งซื้อสุทธิ:** `{mat_cost_calc:,}` บาท")
                 
                 if st.button("📥 ยืนยันการลงทะเบียนโครงการ", use_container_width=True):
-                    # ตรวจสอบสิทธิ์ผู้รับเหมาว่าติดงานค้างอยู่ในระบบหรือไม่
+                    # ตรวจสอบสิทธิ์ผู้รับเหมาว่าติดงานค้างอยู่หรือไม่
                     busy_project = None
                     busy_idx = -1
                     for idx, deal in enumerate(GAME_DATA):
@@ -155,7 +151,10 @@ with tab2:
                     elif inv_pct + con_pct != 100:
                         st.error(f"❌ สัดส่วนแบ่งกำไรรวมกันต้องได้ 100% พอดี (ปัจจุบันได้ {inv_pct + con_pct}%)")
                     elif busy_project is not None:
-                        st.error(f"❌ ทีม **[{contractor}]** กำลังมีงานค้างดำเนินการอยู่ ({busy_project} ในคิวที่ {busy_idx}) ต้องส่งตรวจให้ผ่านหรือให้สตาฟลบแถวข้อมูลออกก่อน จึงจะรับงานใหม่ได้!")
+                        st.error(f"❌ ทีม **[{contractor}]** กำลังมีงานค้างดำเนินการอยู่ ({busy_project} ในคิวที่ {busy_idx}) ต้องส่งตรวจให้ผ่านหรือให้สตาฟลบแถวข้อมูลออกก่อนจึงจะจองงานใหม่ได้")
+                    # 🚨 [จุดเพิ่มเกณฑ์ดักบัญชี] ตรวจสอบงบประเมินโครงการ (Budget) ต้องห้ามต่ำกว่า ยอดสั่งซื้อของ (Material Cost)
+                    elif budget < mat_cost_calc:
+                        st.error(f"❌ งบประมาณไม่เพียงพอ! งบประมาณตั้งต้นของโครงการ ({budget:,} บาท) จะต้องสูงกว่าหรือเท่ากับราคารวมวัสดุสั่งซื้อ ({mat_cost_calc:,} บาท) เสมอครับ")
                     else:
                         GAME_DATA.append({
                             "project_id": p_id, "project_name": PROJECT_MASTER[p_id]["name"],
@@ -203,6 +202,9 @@ with tab2:
                         if st.button("💾 บันทึกการแก้ไขข้อมูล", key=f"btn_save_ed_{selected_row_idx}", use_container_width=True):
                             if edit_inv_pct + edit_con_pct != 100:
                                 st.error(f"❌ บันทึกไม่ได้! สัดส่วนแก้ไขรวมกันต้องได้ 100% พอดี (ปัจจุบันได้ {edit_inv_pct + edit_con_pct}%)")
+                            # ดักเกณฑ์ตอนแก้ไขข้อมูลด้วยเช่นกัน
+                            elif edit_bug < edit_mat:
+                                st.error(f"❌ งบประมาณแก้ไขไม่เพียงพอ! งบลงทุน ({edit_bug:,} บ.) ต้องมากกว่าราคาของวัสดุ ({edit_mat:,} บ.)")
                             else:
                                 GAME_DATA[selected_row_idx].update({
                                     "investor": edit_inv, "investor_pct": edit_inv_pct, 
@@ -214,7 +216,6 @@ with tab2:
                                 st.rerun()
                         
                         st.markdown("---")
-                        # 💡 [จุดเพิ่มระบบ Confirm ก่อนลบ Record] ดักตัวแปร State รายคิว
                         confirm_key = f"confirm_delete_{selected_row_idx}"
                         if confirm_key not in st.session_state:
                             st.session_state[confirm_key] = False
@@ -224,7 +225,6 @@ with tab2:
                                 st.session_state[confirm_key] = True
                                 st.rerun()
                         else:
-                            # เมื่อกดแล้วจะขึ้นปุ่มถามย้ำเตือนความชัวร์ Yes / No
                             st.warning(f"⚠️ **คุณแน่ใจใช่ไหม?** ระบบจะทำการลบข้อมูลคิวที่ {selected_row_idx} ออกจากฐานข้อมูลทันทีแบบกู้คืนไม่ได้!")
                             col_conf1, col_conf2 = st.columns(2)
                             with col_conf1:
