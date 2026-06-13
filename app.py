@@ -28,7 +28,7 @@ MATERIAL_PRICES = load_json(ITEM_FILE, {"ไม้เสียบลูกชิ
 PROJECT_MASTER = load_json(PROJECT_FILE, {})
 GAME_DATA = load_json(DATA_FILE, [])
 
-# 🔍 ประมวลผลหา "สถานะปัจจุบัน" ของโปรเจกต์แต่ละระดับความยากแบบ Dynamic
+# ประมวลผลหา "สถานะปัจจุบัน" ของโปรเจกต์แต่ละระดับความยากแบบ Dynamic
 STATUS_MAP = {}
 for deal in GAME_DATA:
     key = f"{deal['project_id']}-{deal['difficulty']}"
@@ -37,7 +37,7 @@ for deal in GAME_DATA:
     elif deal["result"] == "รอตรวจ" and STATUS_MAP.get(key) != "เสร็จสิ้น":
         STATUS_MAP[key] = "กำลังดำเนินการ"
     elif deal["result"] == "ไม่ผ่าน" and STATUS_MAP.get(key) not in ["กำลังดำเนินการ", "เสร็จสิ้น"]:
-        STATUS_MAP[key] = "กำลังดำเนินการ"  # งานไม่ผ่านก็ยังถือว่าทีมเดิมถือสัญญาอยู่ กำลังดำเนินการแก้ไข
+        STATUS_MAP[key] = "กำลังดำเนินการ"
     elif deal["result"] == "ยกเลิก" and STATUS_MAP.get(key) not in ["กำลังดำเนินการ", "เสร็จสิ้น"]:
         STATUS_MAP[key] = "ว่าง"
 
@@ -51,6 +51,16 @@ with tab1:
     st.header("📋 คู่มือภารกิจเมกะโปรเจกต์ & เช็กสถานะงานดิจิทัล")
     st.caption("นักศึกษาสามารถสแกนเข้ามาอ่านรายละเอียดเงื่อนไขและจองงานได้จากหน้านี้โดยไม่ต้องใช้กระดาษ")
     
+    # 💡 [จุดเพิ่มที่ 1] เพิ่มการแสดงรายการวัสดุและราคากลางฝั่งนักศึกษา เพื่อให้ทุกทีมใช้วางแผนต้นทุนก่อนเดินมาหาตาฟ
+    if MATERIAL_PRICES:
+        with st.expander("📦 รายการวัสดุอุปกรณ์และราคากลาง (สำหรับวางแผนคำนวณต้นทุน)", expanded=True):
+            mat_records = [{"รายการวัสดุ/อุปกรณ์": mat, "ราคากลาง (บาท)": f"{price:,}"} for mat, price in MATERIAL_PRICES.items()]
+            df_mat = pd.DataFrame(mat_records)
+            st.table(df_mat)
+            st.caption("⚠️ หมายเหตุ: รายการที่มีเครื่องหมาย * เป็นวัสดุควบคุมตามข้อกำหนดเฉพาะของบางโครงการ โปรดตรวจสอบเงื่อนไขก่อนสั่งซื้อ")
+
+    st.markdown("---")
+
     if PROJECT_MASTER:
         p_options = sorted(list(PROJECT_MASTER.keys()), key=int)
         selected_p = st.selectbox("🔍 เลือกดูรายละเอียดโครงการที่ต้องการศึกษา:", p_options, 
@@ -97,7 +107,6 @@ with tab2:
             st.subheader("📝 1. ส่วนลงทะเบียนโครงการ")
             st.markdown("##### 📥 ฟอร์มลงทะเบียนและสั่งของใหม่")
             
-            # 🛠️ [จุดแก้ไขหลัก] กรองเมนูตัวเลือกดีลงาน: เฉพาะโครงการระดับที่สถานะเป็น "ว่าง" เท่านั้นที่จะโผล่มาให้เลือก
             deal_choices = []
             for pid, pdata in PROJECT_MASTER.items():
                 for lvl in pdata["levels"].keys():
@@ -141,7 +150,6 @@ with tab2:
                 st.markdown(f"📦 **ราคารวมวัสดุสั่งซื้อสุทธิ:** `{mat_cost_calc:,}` บาท")
                 
                 if st.button("📥 ยืนยันการลงทะเบียนโครงการ", use_container_width=True):
-                    # ตรวจสอบสิทธิ์ผู้รับเหมาว่าติดงานค้างอยู่หรือไม่
                     busy_project = None
                     busy_idx = -1
                     for idx, deal in enumerate(GAME_DATA):
