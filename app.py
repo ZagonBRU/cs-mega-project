@@ -129,7 +129,7 @@ with tab2:
                 st.markdown(f"📦 **ราคารวมวัสดุสั่งซื้อสุทธิ:** `{mat_cost_calc:,}` บาท")
                 
                 if st.button("📥 ยืนยันการลงทะเบียนโครงการ", use_container_width=True):
-                    # 🔍 [จุดแก้บั๊ก] ตรวจสอบสิทธิ์ผู้รับเหมาว่าติดงานค้างอยู่ในระบบหรือไม่
+                    # ตรวจสอบสิทธิ์ผู้รับเหมาว่าติดงานค้างอยู่ในระบบหรือไม่
                     busy_project = None
                     busy_idx = -1
                     for idx, deal in enumerate(GAME_DATA):
@@ -142,9 +142,8 @@ with tab2:
                         st.error("❌ ห้ามนักลงทุนและผู้รับเหมาเป็นทีมเดียวกันครับ")
                     elif inv_pct + con_pct != 100:
                         st.error(f"❌ สัดส่วนแบ่งกำไรรวมกันต้องได้ 100% พอดี (ปัจจุบันได้ {inv_pct + con_pct}%)")
-                    # 🚨 ดักเงื่อนไข: หากทีมผู้รับเหมามีสถานะทำงานค้างอยู่ จะสั่งระงับทันที
                     elif busy_project is not None:
-                        st.error(f"❌ ทีม **[{contractor}]** กำลังมีงานค้างดำเนินการอยู่ ({busy_project} ในคิวที่ {busy_idx}) ต้องส่งตรวจให้ผ่านหรือขอยกเลิกก่อน จึงจะรับงานใหม่ได้!")
+                        st.error(f"❌ ทีม **[{contractor}]** กำลังมีงานค้างดำเนินการอยู่ ({busy_project} ในคิวที่ {busy_idx}) ต้องส่งตรวจให้ผ่านหรือให้สตาฟลบแถวข้อมูลออกก่อน จึงจะรับงานใหม่ได้!")
                     else:
                         GAME_DATA.append({
                             "project_id": p_id, "project_name": PROJECT_MASTER[p_id]["name"],
@@ -158,24 +157,24 @@ with tab2:
             else:
                 st.info("โครงการทุกระดับถูกทำเสร็จสิ้นหมดแล้ว!")
 
-        # 📊 ฝั่งขวา (กว้าง 2 ส่วน): แสดงตารางภาพรวมขนาดใหญ่ พร้อมระบบแก้ไข/ขอยกเลิก
+        # 📊 ฝั่งขวา (กว้าง 2 ส่วน): แสดงตารางภาพรวมขนาดใหญ่ พร้อมระบบแก้ไข/ลบ/ขอยกเลิก
         with col_edit:
             st.subheader("📊 ตารางภาพรวมข้อมูลโครงการ")
-            st.markdown("##### 🔍 ค้นหา แก้ไข หรือขอยกเลิกข้อมูลดีลงาน")
+            st.markdown("##### 🔍 ค้นหา แก้ไข หรือลบข้อมูลดีลงานที่คีย์ผิด")
             if GAME_DATA:
                 df_overview = pd.DataFrame(GAME_DATA)
                 display_cols = ["project_id", "difficulty", "investor", "investor_pct", "contractor", "contractor_pct", "material_cost", "budget", "result"]
                 df_display = df_overview[display_cols].copy()
                 df_display.columns = ["รหัส", "ระดับ", "นักลงทุน", "กำไรนายทุน %", "ผู้รับเหมา", "กำไรผู้รับเหมา %", "ค่าวัสดุ", "งบลงทุน", "สถานะผล"]
                 
-                selected_row_idx = st.selectbox("🎯 คลิกเลือกแถวคิวงานที่ต้องการ แก้ไขข้อมูล / ขอยกเลิก:", range(len(GAME_DATA)), 
+                selected_row_idx = st.selectbox("🎯 คลิกเลือกแถวคิวงานที่ต้องการ แก้ไข/ลบถาวร/ขอยกเลิก:", range(len(GAME_DATA)), 
                                                  format_func=lambda x: f"คิวที่ {x} | โพรเจกต์ {GAME_DATA[x]['project_id']} (ระดับ {GAME_DATA[x]['difficulty']}) -> ทีม {GAME_DATA[x]['contractor']}")
                 
                 target_edit = GAME_DATA[selected_row_idx]
                 
                 col_btn1, col_btn2 = st.columns(2)
                 with col_btn1:
-                    with st.expander("✏️ ฟอร์มแก้ไขข้อมูลในกรณีคีย์ผิดพลาด"):
+                    with st.expander("✏️ ฟอร์มแก้ไขข้อมูล / 🗑️ ลบ Record คีย์ผิดพลาด"):
                         edit_inv = st.selectbox("แก้ไขนักลงทุน:", TEAMS, index=TEAMS.index(target_edit["investor"]), key=f"ed_inv_{selected_row_idx}")
                         
                         st.markdown("⚡ *แก้ไขสัดส่วนแบ่งกำไร (%)*")
@@ -201,14 +200,22 @@ with tab2:
                                 save_json(DATA_FILE, GAME_DATA)
                                 st.success("แก้ไขข้อมูลในระบบเรียบร้อย!")
                                 st.rerun()
+                        
+                        st.markdown("---")
+                        # 🚨 [ฟังก์ชันเพิ่มใหม่] ปุ่มสำหรับ Staff กดลบ Record ทิ้งถาวรกรณีคีย์ผิดพลาดเอง ไม่กระทบคะแนนใคร
+                        if st.button("🗑️ ลบ Record นี้ออกจากระบบถาวร (Staff Only)", key=f"btn_del_rec_{selected_row_idx}", use_container_width=True, type="secondary"):
+                            GAME_DATA.pop(selected_row_idx)
+                            save_json(DATA_FILE, GAME_DATA)
+                            st.success("🗑️ ลบข้อมูลคิวงานที่เลือกออกจากฐานข้อมูลเรียบร้อยแล้ว (ไม่กระทบกับทีมใดๆ)")
+                            st.rerun()
                             
                 with col_btn2:
                     if target_edit["result"] not in ["ผ่าน", "ยกเลิก"]:
-                        if st.button("🚨 ขอยกเลิกโครงการนี้", type="primary", key=f"btn_cancel_{selected_row_idx}", use_container_width=True):
+                        if st.button("🚨 ขอยกเลิกโครงการนี้ (โดยความต้องการของทีม)", type="primary", key=f"btn_cancel_{selected_row_idx}", use_container_width=True):
                             GAME_DATA[selected_row_idx]["result"] = "ยกเลิก"
                             GAME_DATA[selected_row_idx]["net_profit"] = -int(target_edit["budget"])
                             save_json(DATA_FILE, GAME_DATA)
-                            st.warning("⚠️ ยกเลิกโครงการแล้ว (ทีมนายทุนสูญเสียเงินลงทุนก้อนแรกเรียบร้อย ฝั่งรับเหมาไม่เสียเงิน)")
+                            st.warning("⚠️ เปลี่ยนสถานะเป็นยกเลิกแล้ว (ทีมนายทุนสูญเสียเงินลงทุนก้อนแรกเรียบร้อย ประวัติการจองยังคงอยู่ในตาราง)")
                             st.rerun()
                 
                 st.dataframe(df_display, use_container_width=True)
