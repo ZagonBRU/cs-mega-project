@@ -87,7 +87,7 @@ with tab2:
             if pwd == PASSWORD: st.session_state["auth"] = True; st.rerun()
             else: st.error("รหัสผ่านไม่ถูกต้อง")
     else:
-        # 📊 แบ่ง Layout สัดส่วนหน้าจอตามกติกาเป็น [ 1 ส่วน | 2 ส่วน ] เพื่อเพิ่มพื้นที่ให้ตารางข้อมูลภาพรวม
+        # 📊 Layout [ 1 ส่วน | 2 ส่วน ]
         col_f, col_edit = st.columns([1, 2])
         
         # 📥 ฝั่งซ้าย (กว้าง 1 ส่วน): ลงทะเบียนโครงการ + สั่งซื้อวัสดุ
@@ -122,10 +122,22 @@ with tab2:
                 
                 # ตารางเปิดบิลคำนวณราคาวัสดุ
                 mat_cost_calc = 0
+                
+                # 💡 [จุดเพิ่มระบบ Reset วัสดุ] ใช้ Session State คุมค่าเริ่มต้นเพื่อให้สั่งเคลียร์เป็น 0 ได้จริง
+                if "reset_trigger" not in st.session_state:
+                    st.session_state["reset_trigger"] = 0
+                
                 with st.expander("🛒 เปิดบิลคำนวณราคาวัสดุ (สั่งซื้อได้ครั้งเดียว)", expanded=False):
                     for mat, price in MATERIAL_PRICES.items():
-                        qty = st.number_input(f"{mat} ({price:,} บ.)", min_value=0, value=0, key=f"order_{mat}")
+                        # ผูกคีย์พิเศษที่มีพ่วงไอดีของปุ่ม Reset เข้าไปด้วย
+                        qty = st.number_input(f"{mat} ({price:,} บ.)", min_value=0, value=0, key=f"order_{mat}_{st.session_state['reset_trigger']}")
                         mat_cost_calc += qty * price
+                        
+                    # ปุ่มเคลียร์ค่าใบเสร็จทั้งหมดเป็น 0 ในคลิกเดียว
+                    if st.button("🔄 ล้างรายการสั่งซื้อ (Reset เป็น 0 ทั้งหมด)", use_container_width=True):
+                        st.session_state["reset_trigger"] += 1  # ขยับเลเวลเพื่อบังคับให้ช่องสตรีมลิตรีเซ็ตเป็น 0
+                        st.rerun()
+                        
                 st.markdown(f"📦 **ราคารวมวัสดุสั่งซื้อสุทธิ:** `{mat_cost_calc:,}` บาท")
                 
                 if st.button("📥 ยืนยันการลงทะเบียนโครงการ", use_container_width=True):
@@ -202,12 +214,30 @@ with tab2:
                                 st.rerun()
                         
                         st.markdown("---")
-                        # 🚨 [ฟังก์ชันเพิ่มใหม่] ปุ่มสำหรับ Staff กดลบ Record ทิ้งถาวรกรณีคีย์ผิดพลาดเอง ไม่กระทบคะแนนใคร
-                        if st.button("🗑️ ลบ Record นี้ออกจากระบบถาวร (Staff Only)", key=f"btn_del_rec_{selected_row_idx}", use_container_width=True, type="secondary"):
-                            GAME_DATA.pop(selected_row_idx)
-                            save_json(DATA_FILE, GAME_DATA)
-                            st.success("🗑️ ลบข้อมูลคิวงานที่เลือกออกจากฐานข้อมูลเรียบร้อยแล้ว (ไม่กระทบกับทีมใดๆ)")
-                            st.rerun()
+                        # 💡 [จุดเพิ่มระบบ Confirm ก่อนลบ Record] ดักตัวแปร State รายคิว
+                        confirm_key = f"confirm_delete_{selected_row_idx}"
+                        if confirm_key not in st.session_state:
+                            st.session_state[confirm_key] = False
+                            
+                        if not st.session_state[confirm_key]:
+                            if st.button("🗑️ ลบ Record นี้ออกจากระบบถาวร (Staff Only)", key=f"btn_del_click_{selected_row_idx}", use_container_width=True):
+                                st.session_state[confirm_key] = True
+                                st.rerun()
+                        else:
+                            # เมื่อกดแล้วจะขึ้นปุ่มถามย้ำเตือนความชัวร์ Yes / No
+                            st.warning(f"⚠️ **คุณแน่ใจใช่ไหม?** ระบบจะทำการลบข้อมูลคิวที่ {selected_row_idx} ออกจากฐานข้อมูลทันทีแบบกู้คืนไม่ได้!")
+                            col_conf1, col_conf2 = st.columns(2)
+                            with col_conf1:
+                                if st.button("✅ ใช่, ยืนยันการลบถาวร", key=f"btn_yes_{selected_row_idx}", use_container_width=True, type="primary"):
+                                    GAME_DATA.pop(selected_row_idx)
+                                    save_json(DATA_FILE, GAME_DATA)
+                                    st.session_state[confirm_key] = False
+                                    st.success("🗑️ ลบข้อมูลออกจากระบบถาวรเสร็จสิ้น!")
+                                    st.rerun()
+                            with col_conf2:
+                                if st.button("❌ ยกเลิก", key=f"btn_no_{selected_row_idx}", use_container_width=True):
+                                    st.session_state[confirm_key] = False
+                                    st.rerun()
                             
                 with col_btn2:
                     if target_edit["result"] not in ["ผ่าน", "ยกเลิก"]:
